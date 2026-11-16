@@ -1,7 +1,7 @@
 PERIODO_VIGENTE = "202630"   
 PERIODO_ANTERIOR = "202610"   
 PASSWORD_DEMO = "Lightspace123!"
-DOMINIO_EMAIL = "lightspace.test"
+DOMINIO_EMAIL = "lightspace.example.com"
 
 PROGRAMAS = {
     "SIS": ("Ingeniería de Sistemas y Computación", "Ingenierías"),
