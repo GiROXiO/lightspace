@@ -120,13 +120,13 @@ docker compose exec -T backend sh -c 'cd /database && python -m seed.main --rese
 
 Cuentas demo (contraseña de todas: `Lightspace123!`):
 
-| Email                             | Perfil                                                 |
-| --------------------------------- | ------------------------------------------------------ |
-| `demo.sistemas@lightspace.test`   | Sistemas, semestre 6, con todos sus cursos inscritos   |
-| `demo.industrial@lightspace.test` | Industrial, semestre 5, con todos sus cursos inscritos |
-| `demo.derecho@lightspace.test`    | Derecho, semestre 4                                    |
-| `demo.medicina@lightspace.test`   | Medicina, semestre 3                                   |
-| `demo.nuevo@lightspace.test`      | Recién registrado: sin matrículas, conexiones ni posts |
+| Email                                    | Perfil                                                 |
+| ---------------------------------------- | ------------------------------------------------------ |
+| `demo.sistemas@lightspace.example.com`   | Sistemas, semestre 6, con todos sus cursos inscritos   |
+| `demo.industrial@lightspace.example.com` | Industrial, semestre 5, con todos sus cursos inscritos |
+| `demo.derecho@lightspace.example.com`    | Derecho, semestre 4                                    |
+| `demo.medicina@lightspace.example.com`   | Medicina, semestre 3                                   |
+| `demo.nuevo@lightspace.example.com`      | Recién registrado: sin matrículas, conexiones ni posts |
 
 ## Desarrollo del backend
 
