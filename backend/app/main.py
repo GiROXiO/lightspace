@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from neo4j import Session
 
 from . import db
@@ -29,6 +30,12 @@ app = FastAPI(
   lifespan=lifespan,
 )
 
+app.add_middleware(
+  CORSMiddleware,
+  allow_origins=settings.cors_origins,
+  allow_methods=["*"],
+  allow_headers=["*"],
+)
 
 @app.get("/api/health", tags=["Estado"])
 def health(session: Session = Depends(db.get_session)):
