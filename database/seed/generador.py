@@ -9,8 +9,8 @@ from . import catalogo as cat
 
 _NS = uuid.UUID("6f0f3c1e-5b7a-4d2e-9a53-0c1d2e3f4a5b")
 _UTC = timezone.utc
-ANCLA = datetime(2026, 11, 14, 12, 0, 0, tzinfo=_UTC)            
-INICIO_PERIODO = datetime(2026, 8, 3, 8, 0, 0, tzinfo=_UTC)      
+ANCLA = datetime(2026, 12, 1, 12, 0, 0, tzinfo=_UTC)            
+INICIO_PERIODO = datetime(2026, 7, 27, 8, 0, 0, tzinfo=_UTC)      
 
 TIPOS_PUBLICACION = {"GENERAL", "MATERIAL", "PREGUNTA", "BUSCA_GRUPO"}
 TIPOS_NOTIFICACION = {
@@ -485,3 +485,4 @@ def resumen(ds: dict[str, list[dict]]) -> str:
     for clave, filas in ds.items():
         lineas.append(f"  {clave:<26}{len(filas):>6}")
     return "\n".join(lineas)
+
