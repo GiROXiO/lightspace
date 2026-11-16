@@ -103,6 +103,31 @@ DROP CONSTRAINT nombre_de_la_restriccion IF EXISTS
 DROP INDEX nombre_del_indice IF EXISTS
 ```
 
+### Datos de prueba (seed)
+
+Carga un conjunto determinista de datos simulados: programas, cursos, usuarios, matrículas, publicaciones, comentarios, conexiones y notificaciones. Los prefijos de materia (IST, MAT, LEY...) son los reales de la universidad; todo lo demás es simulado.
+
+```bash
+docker compose exec -T backend sh -c 'cd /database && python -m seed.main --reset'
+```
+
+| Opción         | Efecto                                           | Por defecto |
+| -------------- | ------------------------------------------------ | ----------- |
+| `--reset`      | **Borra toda la base** antes de cargar           | desactivado |
+| `--usuarios N` | Cantidad de usuarios                             | 120         |
+| `--semilla N`  | Semilla aleatoria (misma semilla = mismos datos) | 42          |
+| `--dry-run`    | Genera y valida sin tocar Neo4j                  | desactivado |
+
+Cuentas demo (contraseña de todas: `Lightspace123!`):
+
+| Email                             | Perfil                                                 |
+| --------------------------------- | ------------------------------------------------------ |
+| `demo.sistemas@lightspace.test`   | Sistemas, semestre 6, con todos sus cursos inscritos   |
+| `demo.industrial@lightspace.test` | Industrial, semestre 5, con todos sus cursos inscritos |
+| `demo.derecho@lightspace.test`    | Derecho, semestre 4                                    |
+| `demo.medicina@lightspace.test`   | Medicina, semestre 3                                   |
+| `demo.nuevo@lightspace.test`      | Recién registrado: sin matrículas, conexiones ni posts |
+
 ## Desarrollo del backend
 
 El backend corre en Docker y recarga solo al guardar cambios en `backend/app/`. Para editar con autocompletado y probar fuera de Docker:
@@ -150,15 +175,16 @@ Cada integrante trabaja a su ritmo, pero debe llegar a cada corte con lo suyo te
 
 ## Comandos útiles
 
-| Comando                          | Qué hace                                                  |
-| -------------------------------- | --------------------------------------------------------- |
-| `docker compose up -d --build`   | Levanta (y reconstruye) todos los servicios               |
-| `docker compose ps`              | Estado de los contenedores                                |
-| `docker compose logs -f backend` | Logs del backend en vivo (`Ctrl + C` para salir)          |
-| `docker compose logs neo4j`      | Logs de Neo4j                                             |
-| `docker compose stop`            | Apaga los contenedores (los datos se conservan)           |
-| `docker compose down`            | Apaga y elimina los contenedores (los datos se conservan) |
-| `docker compose down -v`         | Elimina también el volumen: **borra los datos**           |
+| Comando                                                                              | Qué hace                                                  |
+| ------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| `docker compose up -d --build`                                                       | Levanta (y reconstruye) todos los servicios               |
+| `docker compose ps`                                                                  | Estado de los contenedores                                |
+| `docker compose logs -f backend`                                                     | Logs del backend en vivo (`Ctrl + C` para salir)          |
+| `docker compose logs neo4j`                                                          | Logs de Neo4j                                             |
+| `docker compose stop`                                                                | Apaga los contenedores (los datos se conservan)           |
+| `docker compose down`                                                                | Apaga y elimina los contenedores (los datos se conservan) |
+| `docker compose down -v`                                                             | Elimina también el volumen: **borra los datos**           |
+| `docker compose exec -T backend sh -c 'cd /database && python -m seed.main --reset'` | Recarga los datos de prueba (**borra la base**)           |
 
 ## Solución de problemas
 
@@ -185,6 +211,6 @@ Cada integrante trabaja a su ritmo, pero debe llegar a cada corte con lo suyo te
 - [x] Modelo del grafo
 - [x] Esquema de la base
 - [x] Backend base (`/api/health`)
-- [ ] Seed de datos
+- [x] Seed de datos
 - [ ] Contrato de la API (`docs/api.md`)
 - [ ] Frontend base
