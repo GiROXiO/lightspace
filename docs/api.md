@@ -6,17 +6,17 @@ Alcance: lo necesario para el **corte 1** (jueves 19 de noviembre): registro, lo
 
 ## Convenciones
 
-| Tema | Regla |
-|---|---|
-| Prefijo | Todas las rutas empiezan con `/api` |
-| Formato | JSON (`Content-Type: application/json`), propiedades en `snake_case` |
-| Ids | UUID en texto |
-| Fechas | ISO 8601 en UTC con `Z`, ej. `2026-08-04T10:30:00Z`. En Neo4j son `datetime`: convertir con `.to_native()` y luego `.isoformat()` |
-| `periodo`, `nrc` | Texto (`"202630"`, `"10020"`) |
-| Autenticación | `Authorization: Bearer <token>` (JWT). Las rutas marcadas "Sí" en la columna **Sesión** la exigen |
-| Contraseña | Nunca se devuelve. `password_hash` no sale en ninguna respuesta |
-| Correo | Se guarda y compara en minúsculas |
-| Paginación | `pagina` (desde 1) y `tamano` (por defecto 20, máximo 100) |
+| Tema             | Regla                                                                                                                             |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Prefijo          | Todas las rutas empiezan con `/api`                                                                                               |
+| Formato          | JSON (`Content-Type: application/json`), propiedades en `snake_case`                                                              |
+| Ids              | UUID en texto                                                                                                                     |
+| Fechas           | ISO 8601 en UTC con `Z`, ej. `2026-08-04T10:30:00Z`. En Neo4j son `datetime`: convertir con `.to_native()` y luego `.isoformat()` |
+| `periodo`, `nrc` | Texto (`"202630"`, `"10020"`)                                                                                                     |
+| Autenticación    | `Authorization: Bearer <token>` (JWT). Las rutas marcadas "Sí" en la columna **Sesión** la exigen                                 |
+| Contraseña       | Nunca se devuelve. `password_hash` no sale en ninguna respuesta                                                                   |
+| Correo           | Se guarda y compara en minúsculas                                                                                                 |
+| Paginación       | `pagina` (desde 1) y `tamano` (por defecto 20, máximo 100)                                                                        |
 
 ### Formato de errores
 
@@ -26,14 +26,14 @@ Todos los errores propios devuelven:
 { "detail": "Mensaje legible en español" }
 ```
 
-| Código | Cuándo |
-|---|---|
-| `400` | Petición válida en forma pero con datos imposibles (ej. interés que no existe) |
-| `401` | Falta el token, está vencido o es inválido; credenciales incorrectas. Incluye `WWW-Authenticate: Bearer` |
-| `403` | Autenticado pero sin permiso (fases posteriores) |
-| `404` | El recurso no existe |
-| `409` | Conflicto de unicidad (correo o código ya registrados) |
-| `422` | Falla de validación de Pydantic. Lo genera FastAPI con su formato estándar; no se modifica |
+| Código | Cuándo                                                                                                   |
+| ------ | -------------------------------------------------------------------------------------------------------- |
+| `400`  | Petición válida en forma pero con datos imposibles (ej. interés que no existe)                           |
+| `401`  | Falta el token, está vencido o es inválido; credenciales incorrectas. Incluye `WWW-Authenticate: Bearer` |
+| `403`  | Autenticado pero sin permiso (fases posteriores)                                                         |
+| `404`  | El recurso no existe                                                                                     |
+| `409`  | Conflicto de unicidad (correo o código ya registrados)                                                   |
+| `422`  | Falla de validación de Pydantic. Lo genera FastAPI con su formato estándar; no se modifica               |
 
 ### Autenticación con JWT
 
@@ -63,21 +63,29 @@ def algo(usuario: dict = Depends(get_usuario_actual), session=Depends(db.get_ses
 
 ## Configuración que hay que agregar (una vez)
 
-| Dónde | Qué |
-|---|---|
-| `backend/requirements.txt` | `PyJWT` y `email-validator` (la necesita `EmailStr`). Después, `pip freeze` |
-| `backend/app/config.py` | `jwt_secret: str` (obligatoria), `jwt_algoritmo: str = "HS256"`, `jwt_horas: int = 24` |
-| `.env` y `.env.example` | `JWT_SECRET=<texto largo aleatorio>` |
+| Dónde                                                   | Qué                                                                                         |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `backend/requirements.txt`                              | `PyJWT` y `email-validator` (la necesita `EmailStr`). Después, `pip freeze`                 |
+| `backend/app/config.py`                                 | `jwt_secret: str` (obligatoria), `jwt_algoritmo: str = "HS256"`, `jwt_horas: int = 24`      |
+| `.env` y `.env.example`                                 | `JWT_SECRET=<texto largo aleatorio>`                                                        |
 | `docker-compose.yml`, servicio `backend`, `environment` | `JWT_SECRET: ${JWT_SECRET}` (sin esto el contenedor no la recibe, aunque esté en el `.env`) |
+
+Generar el valor de `JWT_SECRET`:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Cada integrante usa el suyo en su `.env`. Si falta, el backend no arranca.
 
 ## Módulos y responsables
 
-| Archivo | Rutas | Responsable |
-|---|---|---|
-| `app/auth.py` | `/api/auth/*` y la dependencia `get_usuario_actual` | Arrieta |
-| `app/usuarios.py` | `/api/usuarios/me` | Arrieta |
-| `app/catalogos.py` | `/api/programas`, `/api/intereses` | Arrieta |
-| `app/cursos.py` | `/api/cursos` | Caceres |
+| Archivo            | Rutas                                               | Responsable |
+| ------------------ | --------------------------------------------------- | ----------- |
+| `app/auth.py`      | `/api/auth/*` y la dependencia `get_usuario_actual` | Arrieta     |
+| `app/usuarios.py`  | `/api/usuarios/me`                                  | Arrieta     |
+| `app/catalogos.py` | `/api/programas`, `/api/intereses`                  | Arrieta     |
+| `app/cursos.py`    | `/api/cursos`                                       | Caceres     |
 
 Cada módulo define `router = APIRouter(prefix="/api/...", tags=["..."])` y se registra en `main.py` con `app.include_router(...)`.
 
@@ -85,16 +93,16 @@ Cada módulo define `router = APIRouter(prefix="/api/...", tags=["..."])` y se r
 
 ## Tabla de endpoints
 
-| Método | Ruta | Descripción | Sesión | Responsable |
-|---|---|---|---|---|
-| `GET` | `/api/programas` | Lista de programas (para el formulario de registro) | No | Arrieta |
-| `GET` | `/api/intereses` | Lista de intereses | No | Arrieta |
-| `POST` | `/api/auth/registro` | Crea una cuenta y devuelve el token | No | Arrieta |
-| `POST` | `/api/auth/login` | Inicia sesión y devuelve el token | No | Arrieta |
-| `GET` | `/api/usuarios/me` | Perfil del usuario autenticado | Sí | Arrieta |
-| `PATCH` | `/api/usuarios/me` | Edita el perfil | Sí | Arrieta |
-| `GET` | `/api/cursos` | Lista de cursos con filtros y paginación | Sí | Caceres |
-| `GET` | `/api/cursos/{id}` | Detalle de un curso | Sí | Caceres |
+| Método  | Ruta                 | Descripción                                         | Sesión | Responsable |
+| ------- | -------------------- | --------------------------------------------------- | ------ | ----------- |
+| `GET`   | `/api/programas`     | Lista de programas (para el formulario de registro) | No     | Arrieta     |
+| `GET`   | `/api/intereses`     | Lista de intereses                                  | No     | Arrieta     |
+| `POST`  | `/api/auth/registro` | Crea una cuenta y devuelve el token                 | No     | Arrieta     |
+| `POST`  | `/api/auth/login`    | Inicia sesión y devuelve el token                   | No     | Arrieta     |
+| `GET`   | `/api/usuarios/me`   | Perfil del usuario autenticado                      | Sí     | Arrieta     |
+| `PATCH` | `/api/usuarios/me`   | Edita el perfil                                     | Sí     | Arrieta     |
+| `GET`   | `/api/cursos`        | Lista de cursos con filtros y paginación            | Sí     | Caceres     |
+| `GET`   | `/api/cursos/{id}`   | Detalle de un curso                                 | Sí     | Caceres     |
 
 ---
 
@@ -106,7 +114,12 @@ Respuesta `200`:
 
 ```json
 [
-  { "id": "uuid", "codigo": "SIS", "nombre": "Ingeniería de Sistemas y Computación", "facultad": "Ingenierías" }
+  {
+    "id": "uuid",
+    "codigo": "SIS",
+    "nombre": "Ingeniería de Sistemas y Computación",
+    "facultad": "Ingenierías"
+  }
 ]
 ```
 
@@ -151,15 +164,15 @@ Entrada:
 }
 ```
 
-| Campo | Regla |
-|---|---|
-| `nombre`, `apellido` | Texto de 1 a 60 caracteres, sin espacios al inicio ni al final |
-| `email` | `EmailStr`. Se guarda en minúsculas |
-| `password` | Mínimo 8 caracteres |
-| `codigo` | Solo dígitos, 9 caracteres (como en el seed) |
-| `semestre` | Entero de 1 a 10 |
-| `programa` | `codigo` de un `Programa` existente |
-| `intereses` | Opcional. Lista de nombres existentes en `Interes`. Por defecto `[]` |
+| Campo                | Regla                                                                |
+| -------------------- | -------------------------------------------------------------------- |
+| `nombre`, `apellido` | Texto de 1 a 60 caracteres, sin espacios al inicio ni al final       |
+| `email`              | `EmailStr`. Se guarda en minúsculas                                  |
+| `password`           | Mínimo 8 caracteres                                                  |
+| `codigo`             | Solo dígitos, 9 caracteres (como en el seed)                         |
+| `semestre`           | Entero de 1 a 10                                                     |
+| `programa`           | `codigo` de un `Programa` existente                                  |
+| `intereses`          | Opcional. Lista de nombres existentes en `Interes`. Por defecto `[]` |
 
 Respuesta `201`:
 
@@ -168,9 +181,14 @@ Respuesta `201`:
   "access_token": "eyJhbGciOi...",
   "token_type": "bearer",
   "usuario": {
-    "id": "uuid", "nombre": "Ana", "apellido": "Pérez Gómez",
-    "email": "ana.perez@lightspace.example.com", "codigo": "200100500",
-    "semestre": 3, "bio": "", "fecha_registro": "2026-11-16T14:05:00Z"
+    "id": "uuid",
+    "nombre": "Ana",
+    "apellido": "Pérez Gómez",
+    "email": "ana.perez@lightspace.example.com",
+    "codigo": "200100500",
+    "semestre": 3,
+    "bio": "",
+    "fecha_registro": "2026-11-16T14:05:00Z"
   }
 }
 ```
@@ -205,7 +223,10 @@ Contraseña: `PasswordHash.recommended().hash(password)` (`pwdlib`, Argon2).
 Entrada:
 
 ```json
-{ "email": "demo.sistemas@lightspace.example.com", "password": "Lightspace123!" }
+{
+  "email": "demo.sistemas@lightspace.example.com",
+  "password": "Lightspace123!"
+}
 ```
 
 Respuesta `200`: la misma forma que el registro (`access_token`, `token_type`, `usuario`).
@@ -229,11 +250,20 @@ Sesión requerida. Respuesta `200`:
 
 ```json
 {
-  "id": "uuid", "nombre": "Demo", "apellido": "Sistemas",
-  "email": "demo.sistemas@lightspace.example.com", "codigo": "200100000",
-  "semestre": 6, "bio": "Estudiante de Ingeniería de Sistemas...",
+  "id": "uuid",
+  "nombre": "Demo",
+  "apellido": "Sistemas",
+  "email": "demo.sistemas@lightspace.example.com",
+  "codigo": "200100000",
+  "semestre": 6,
+  "bio": "Estudiante de Ingeniería de Sistemas...",
   "fecha_registro": "2026-01-15T10:00:00Z",
-  "programa": { "id": "uuid", "codigo": "SIS", "nombre": "Ingeniería de Sistemas y Computación", "facultad": "Ingenierías" },
+  "programa": {
+    "id": "uuid",
+    "codigo": "SIS",
+    "nombre": "Ingeniería de Sistemas y Computación",
+    "facultad": "Ingenierías"
+  },
   "intereses": ["Programación", "Desarrollo Web"]
 }
 ```
@@ -253,15 +283,21 @@ Sesión requerida. Todos los campos son opcionales; solo se cambian los que lleg
 Entrada:
 
 ```json
-{ "nombre": "Ana", "apellido": "Pérez", "bio": "Me gusta el backend.", "semestre": 4, "intereses": ["Programación"] }
+{
+  "nombre": "Ana",
+  "apellido": "Pérez",
+  "bio": "Me gusta el backend.",
+  "semestre": 4,
+  "intereses": ["Programación"]
+}
 ```
 
-| Campo | Regla |
-|---|---|
-| `nombre`, `apellido` | Igual que en el registro |
-| `bio` | Hasta 500 caracteres |
-| `semestre` | Entero de 1 a 10 |
-| `intereses` | Si llega, **reemplaza** la lista completa. `[]` deja al usuario sin intereses |
+| Campo                | Regla                                                                         |
+| -------------------- | ----------------------------------------------------------------------------- |
+| `nombre`, `apellido` | Igual que en el registro                                                      |
+| `bio`                | Hasta 500 caracteres                                                          |
+| `semestre`           | Entero de 1 a 10                                                              |
+| `intereses`          | Si llega, **reemplaza** la lista completa. `[]` deja al usuario sin intereses |
 
 Respuesta `200`: el mismo objeto que `GET /api/usuarios/me`, ya actualizado.
 
@@ -294,14 +330,14 @@ Sesión requerida. Lista paginada, ordenada por `codigo`.
 
 Parámetros de consulta (todos opcionales):
 
-| Parámetro | Tipo | Efecto |
-|---|---|---|
-| `q` | texto | Búsqueda por nombre o código (índice de texto `curso_busqueda`) |
-| `programa` | texto | `codigo` del programa; solo cursos con `DE_PROGRAMA` a ese programa |
-| `materia` | texto | Prefijo exacto (`IST`, `MAT`...) |
-| `semestre` | entero | `semestre_sugerido` igual a ese valor |
-| `pagina` | entero | Desde 1. Por defecto 1 |
-| `tamano` | entero | De 1 a 100. Por defecto 20 |
+| Parámetro  | Tipo   | Efecto                                                              |
+| ---------- | ------ | ------------------------------------------------------------------- |
+| `q`        | texto  | Búsqueda por nombre o código (índice de texto `curso_busqueda`)     |
+| `programa` | texto  | `codigo` del programa; solo cursos con `DE_PROGRAMA` a ese programa |
+| `materia`  | texto  | Prefijo exacto (`IST`, `MAT`...)                                    |
+| `semestre` | entero | `semestre_sugerido` igual a ese valor                               |
+| `pagina`   | entero | Desde 1. Por defecto 1                                              |
+| `tamano`   | entero | De 1 a 100. Por defecto 20                                          |
 
 Respuesta `200`:
 
@@ -330,10 +366,10 @@ Respuesta `200`:
 }
 ```
 
-| Campo calculado | Significado |
-|---|---|
-| `matriculado` | `true` si existe `MATRICULADO_EN` del usuario con ese curso en `PERIODO_ACTUAL` |
-| `relacion` | `"INSCRITO"` si hay `INSCRITO_EN`, `"SIGUE"` si hay `SIGUE`, `null` si ninguna (son excluyentes) |
+| Campo calculado | Significado                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------------ |
+| `matriculado`   | `true` si existe `MATRICULADO_EN` del usuario con ese curso en `PERIODO_ACTUAL`                  |
+| `relacion`      | `"INSCRITO"` si hay `INSCRITO_EN`, `"SIGUE"` si hay `SIGUE`, `null` si ninguna (son excluyentes) |
 
 Errores: `401` sin token; `422` parámetros inválidos (por ejemplo `tamano=500`).
 
@@ -378,7 +414,9 @@ Sesión requerida. Respuesta `200`: todos los campos de un item de la lista, má
 ```json
 {
   "descripcion": "Soluciones Computacionales...: curso de 3 créditos del departamento de ...",
-  "programas": [{ "codigo": "SIS", "nombre": "Ingeniería de Sistemas y Computación" }],
+  "programas": [
+    { "codigo": "SIS", "nombre": "Ingeniería de Sistemas y Computación" }
+  ],
   "matricula": { "periodo": "202630", "nrc": "10092" },
   "total_inscritos": 14,
   "total_seguidores": 6,
@@ -387,12 +425,12 @@ Sesión requerida. Respuesta `200`: todos los campos de un item de la lista, má
 }
 ```
 
-| Campo | Significado |
-|---|---|
-| `programas` | Aquí con objeto (`codigo` y `nombre`), a diferencia de la lista |
-| `matricula` | `{periodo, nrc}` del usuario en `PERIODO_ACTUAL`; `null` si no está matriculado |
-| `total_*` | Conteos de `INSCRITO_EN`, `SIGUE` y `DA_ESTRELLA` hacia el curso |
-| `dio_estrella` | `true` si el usuario tiene `DA_ESTRELLA` hacia el curso |
+| Campo          | Significado                                                                     |
+| -------------- | ------------------------------------------------------------------------------- |
+| `programas`    | Aquí con objeto (`codigo` y `nombre`), a diferencia de la lista                 |
+| `matricula`    | `{periodo, nrc}` del usuario en `PERIODO_ACTUAL`; `null` si no está matriculado |
+| `total_*`      | Conteos de `INSCRITO_EN`, `SIGUE` y `DA_ESTRELLA` hacia el curso                |
+| `dio_estrella` | `true` si el usuario tiene `DA_ESTRELLA` hacia el curso                         |
 
 Errores: `404` "El curso no existe".
 

@@ -42,7 +42,18 @@ Red social universitaria para conectar con otras personas, seguir e inscribirse 
    cp .env.example .env
    ```
 
-   El `.env` no se sube a GitHub. Contiene la contraseña de tu Neo4j local.
+   Abre el `.env` y completa:
+
+   | Variable         | Qué poner                                                                   |
+   | ---------------- | --------------------------------------------------------------------------- |
+   | `NEO4J_PASSWORD` | La contraseña que quieras para tu Neo4j local (mínimo 8 caracteres)         |
+   | `JWT_SECRET`     | Un texto aleatorio de 32 caracteres o más. Genéralo con el comando de abajo |
+
+   ```bash
+   python -c "import secrets; print(secrets.token_urlsafe(48))"
+   ```
+
+   El `.env` no se sube a GitHub. Cada integrante usa sus propios valores: no hace falta que coincidan. Si cambias `JWT_SECRET`, los tokens anteriores dejan de valer y hay que iniciar sesión otra vez.
 
 3. Abre **Docker Desktop** y espera a que diga _Engine running_.
 
@@ -153,6 +164,8 @@ Convenciones:
 - El periodo vigente es `PERIODO_ACTUAL` en `config.py` (`202630`).
 - Al agregar una librería: `pip install paquete` y `pip freeze > requirements.txt` (desde Git Bash, con el entorno activo).
 - Cada módulo va en su propio archivo dentro de `app/` y se registra en `main.py`.
+- Autenticación con JWT en el encabezado `Authorization: Bearer <token>`. Los endpoints protegidos usan `Depends(get_usuario_actual)` (en `app/auth.py`), que devuelve `{"id": ...}`.
+- Rutas, entradas y respuestas: ver `docs/api.md`. Si cambias algo, actualiza ese archivo **antes** de implementarlo y avisa al grupo.
 
 ## Flujo de trabajo
 
@@ -188,21 +201,22 @@ Cada integrante trabaja a su ritmo, pero debe llegar a cada corte con lo suyo te
 
 ## Solución de problemas
 
-| Problema                                                           | Causa y solución                                                                                      |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| `failed to connect to the docker API ... dockerDesktopLinuxEngine` | Docker Desktop no está encendido. Ábrelo y espera _Engine running_                                    |
-| Docker Desktop dice _Virtualization is disabled in firmware_       | Habilita la virtualización en la BIOS (SVM Mode en AMD, Intel VT-x en Intel)                          |
-| `lightspace-neo4j` no llega a `healthy`                            | Revisa `docker compose logs neo4j`. Si el volumen tiene otra contraseña, usa `docker compose down -v` |
-| El backend no arranca con un error de validación                   | Falta `NEO4J_PASSWORD`: crea el `.env` (paso 2 de "Cómo ejecutar")                                    |
-| `failed to read dockerfile`                                        | El archivo debe llamarse exactamente `backend/Dockerfile`, sin extensión                              |
-| Puerto 8000 ocupado                                                | Hay un `uvicorn` local corriendo. Detenlo con `Ctrl + C`                                              |
-| Puerto 7687 ocupado                                                | Hay una instancia de Neo4j Desktop encendida. Apágala                                                 |
-| La contraseña del `.env` no funciona                               | Se cambió después de crear el volumen. Usa `docker compose down -v`                                   |
+| Problema                                                           | Causa y solución                                                                                            |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `failed to connect to the docker API ... dockerDesktopLinuxEngine` | Docker Desktop no está encendido. Ábrelo y espera _Engine running_                                          |
+| Docker Desktop dice _Virtualization is disabled in firmware_       | Habilita la virtualización en la BIOS (SVM Mode en AMD, Intel VT-x en Intel)                                |
+| `lightspace-neo4j` no llega a `healthy`                            | Revisa `docker compose logs neo4j`. Si el volumen tiene otra contraseña, usa `docker compose down -v`       |
+| El backend no arranca con un error de validación                   | Falta `NEO4J_PASSWORD` o `JWT_SECRET` en el `.env` (paso 2 de "Cómo ejecutar")                              |
+| `failed to read dockerfile`                                        | El archivo debe llamarse exactamente `backend/Dockerfile`, sin extensión                                    |
+| Puerto 8000 ocupado                                                | Hay un `uvicorn` local corriendo. Detenlo con `Ctrl + C`                                                    |
+| Puerto 7687 ocupado                                                | Hay una instancia de Neo4j Desktop encendida. Apágala                                                       |
+| La contraseña del `.env` no funciona                               | Se cambió después de crear el volumen. Usa `docker compose down -v`                                         |
+| Swagger responde `401` en una ruta protegida                       | Falta el token. En Swagger usa el botón _Authorize_ y pega el `access_token` que devuelve `/api/auth/login` |
 
 ## Documentación
 
 - `docs/modelo-grafo.md`: modelo del grafo.
-- `docs/api.md`: contrato de la API (pendiente).
+- `docs/api.md`: contrato de la API (fase 1: registro, login, perfil y cursos).
 
 ## Estado
 
@@ -212,5 +226,6 @@ Cada integrante trabaja a su ritmo, pero debe llegar a cada corte con lo suyo te
 - [x] Esquema de la base
 - [x] Backend base (`/api/health`)
 - [x] Seed de datos
-- [ ] Contrato de la API (`docs/api.md`)
+- [x] Contrato de la API (`docs/api.md`)
+- [x] Configuración de JWT
 - [ ] Frontend base

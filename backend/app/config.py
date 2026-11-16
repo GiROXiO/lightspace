@@ -11,6 +11,9 @@ class Settings(BaseSettings):
   neo4j_uri: str = "bolt://localhost:7687"
   neo4j_user: str = "neo4j"
   neo4j_password: str
+  jwt_secret: str
+  jwt_algoritmo: str = "HS256"
+  jwt_horas: int = 24
   schema_path: Path = RAIZ / "database" / "schema.cypher"
   periodo_actual: str = "202630"
 
