@@ -70,16 +70,69 @@ graph LR
 ## Reglas de negocio
 
 - **Seguir** un curso: cualquier usuario, sin verificación. Da acceso al material.
-- **Inscribirse**: solo si existe `MATRICULADO_EN` con `periodo` igual al periodo vigente. Al inscribirse se copian `periodo` y `nrc` a `INSCRITO_EN` y se elimina `SIGUE` (son excluyentes).
+- **Inscribirse**: solo si existe `MATRICULADO_EN` con `periodo` igual al periodo vigente. Al inscribirse se copian `periodo` y `nrc` a `INSCRITO_EN` y se elimina `SIGUE` (son excluyentes). La validación y la exclusión viven en el procedimiento `lightspace inscribir` (ver "Lógica en la base de datos").
 - **Estrella**: solo quien sigue o está inscrito. Una por usuario y curso.
 - **Publicar material y pedir grupo** (`MATERIAL`, `BUSCA_GRUPO`): solo inscritos. **Preguntar**: inscritos y seguidores.
-- **Grupo**: los demás inscritos responden con comentario o `SE_UNIO`. Al llenarse los `cupos`, el `estado` pasa a `CERRADA`.
+- **Grupo**: los demás inscritos responden con comentario o `SE_UNIO`. Al llenarse los `cupos`, el `estado` pasa a `CERRADA` (lo hace el trigger `cerrar_grupo`, no el backend).
 - **Recomendar cursos**: filtro por carrera del usuario (`DE_PROGRAMA`); después, intereses en común, cursos que siguen usuarios parecidos y estrellas.
 - **Recomendar personas**: conexiones en común, cursos compartidos, misma carrera e intereses en común.
 - **Relaciones sin duplicados**: Neo4j no impone unicidad en relaciones. Las consultas que crean `CONECTA_CON`, `MATRICULADO_EN`, `INSCRITO_EN`, `SIGUE`, `DA_ESTRELLA`, `LE_GUSTA` y `SE_UNIO` usan `MERGE`, nunca `CREATE`.
 - Todas las fechas se guardan como `datetime` de Neo4j. El driver de Python las devuelve como `neo4j.time.DateTime`; se convierten con `.to_native()`.
 - La matrícula es única por (usuario, curso, periodo): se crea con `MERGE` incluyendo `{periodo: ...}`.
 - Las contraseñas se guardan con Argon2 (`pwdlib`, `PasswordHash.recommended()`) en el campo `password_hash`. Nunca en texto plano.
+
+## Lógica en la base de datos
+
+> **Por confirmar:** se implementa con el plugin APOC de Neo4j, porque Neo4j Community no permite crear procedimientos, funciones, triggers ni vistas con Cypher como en SQL. Falta verificar qué parte viene en APOC Core y qué parte en APOC Extended para la versión 5.26. Si algo no es viable, la regla se mueve al backend y se documenta aquí.
+
+Convenciones: todo el código vive bajo el espacio de nombres `lightspace`. El responsable de este bloque es Jeronimo Castro; los objetos de notificaciones se acuerdan con Miguel Carrizosa y los de grupos con Juan Caceres. Los endpoints de la fase 1 usan consultas directas; estos objetos entran desde la fase 2.
+
+### Triggers
+
+| Nombre                 | Se dispara cuando...                                     | Hace                                                                                             | Fase |
+| ---------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---- |
+| `excluir_sigue`        | Se crea un `INSCRITO_EN`                                 | Elimina el `SIGUE` del mismo usuario y curso                                                     | 2    |
+| `cerrar_grupo`         | Se crea un `SE_UNIO` hacia una publicación `BUSCA_GRUPO` | Si el número de `SE_UNIO` iguala `cupos`, pone `estado = "CERRADA"`                              | 3    |
+| `notificar_comentario` | Se crea un `COMENTA_EN`                                  | Crea la `Notificacion` tipo `COMENTARIO` para el autor de la publicación, salvo que sea el mismo | 3    |
+| `notificar_like`       | Se crea un `LE_GUSTA`                                    | Crea la `Notificacion` tipo `LIKE`, salvo autolike                                               | 3    |
+| `notificar_union`      | Se crea un `SE_UNIO`                                     | Crea la `Notificacion` tipo `RESPUESTA_GRUPO` para el autor del grupo                            | 3    |
+| `notificar_conexion`   | Se crea o cambia de estado un `CONECTA_CON`              | `SOLICITUD_CONEXION` al crearse `PENDIENTE`; `CONEXION_ACEPTADA` al pasar a `ACEPTADA`           | 3    |
+
+### Procedimientos
+
+| Nombre                           | Entrada                 | Hace                                                                                                                                          | Fase |
+| -------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| `lightspace.inscribir`           | `uid`, `curso_id`       | Verifica `MATRICULADO_EN` del periodo vigente, crea `INSCRITO_EN` con `periodo` y `nrc` de la matrícula y elimina `SIGUE`, en una transacción | 2    |
+| `lightspace.recomendar_personas` | `uid`, `limite`         | Devuelve personas ordenadas por `lightspace.puntaje_persona`                                                                                  | 2    |
+| `lightspace.unirse_grupo`        | `uid`, `publicacion_id` | Verifica que el usuario esté inscrito y que queden cupos, y crea `SE_UNIO` de forma atómica (evita superar `cupos`)                           | 3    |
+| `lightspace.recomendar_cursos`   | `uid`, `limite`         | Filtra por carrera del usuario (`DE_PROGRAMA`) y ordena por `lightspace.puntaje_curso`                                                        | 3    |
+
+### Funciones
+
+| Nombre                       | Entrada           | Devuelve                                                                                       |
+| ---------------------------- | ----------------- | ---------------------------------------------------------------------------------------------- |
+| `lightspace.puntaje_persona` | `uid_a`, `uid_b`  | Número: conexiones en común, cursos compartidos, misma carrera e intereses en común, con pesos |
+| `lightspace.puntaje_curso`   | `uid`, `curso_id` | Número: intereses en común, usuarios parecidos que lo siguen y estrellas                       |
+
+Los pesos de las fórmulas se fijan en la fase 2 y se documentan aquí.
+
+### Vistas
+
+Neo4j no tiene vistas como SQL. Aquí una vista es un procedimiento de **solo lectura** con una consulta fija y parámetros, que se llama con `CALL lightspace.vista_xxx(...)`. No guarda datos: siempre lee el estado actual del grafo.
+
+| Nombre                            | Entrada              | Devuelve                                               | Servicio                         | Fase |
+| --------------------------------- | -------------------- | ------------------------------------------------------ | -------------------------------- | ---- |
+| `vista_perfil`                    | `uid`                | Usuario con programa e intereses                       | Usuarios                         | 2    |
+| `vista_mis_cursos`                | `uid`                | Cursos del usuario con matrícula, relación y NRC       | Cursos                           | 2    |
+| `vista_feed`                      | `uid`, `pagina`      | Publicaciones de conexiones aceptadas, por fecha       | Usuarios                         | 2    |
+| `vista_muro_curso`                | `curso_id`, `pagina` | Publicaciones del curso con autor, likes y comentarios | Cursos                           | 3    |
+| `vista_notificaciones_pendientes` | `uid`                | Notificaciones no leídas del usuario                   | Recomendaciones y notificaciones | 3    |
+
+### Reglas de uso
+
+- Los servicios del backend llaman a estos objetos con `CALL lightspace.xxx(...)`; no repiten la lógica en Python.
+- El seed carga los datos con `MERGE` directo, sin pasar por los triggers (se desactivan durante la carga y se reactivan al terminar), para no generar notificaciones duplicadas. Por confirmar al implementarlo.
+- Los scripts de estos objetos viven en `database/` y se aplican al arrancar, igual que `schema.cypher`.
 
 ## Pendiente (fases posteriores)
 
