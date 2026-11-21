@@ -364,6 +364,16 @@ def generar(n_usuarios: int = 120, semilla: int = 42, password_hash: str = "HASH
         elif rng.random() < 0.6:
             notificar("CONEXION_ACEPTADA", x["origen"], x["destino"], fecha, clave,
                       f"{nombre_de[x['destino']]} aceptó tu solicitud de conexión")
+            
+    # Estrellas de cualquier usuario: estadística aparte, no exige seguir ni estar inscrito
+    dieron = {(e["usuario"], e["curso"]) for e in ds["estrellas"]}
+    for u in activos:
+        for c in rng.sample(cursos, rng.randint(0, 3)):
+            if (u["id"], c["id"]) in dieron or rng.random() >= 0.5:
+                continue
+            dieron.add((u["id"], c["id"]))
+            fecha = _entre(rng, INICIO_PERIODO - timedelta(days=30), ANCLA)
+            ds["estrellas"].append({"usuario": u["id"], "curso": c["id"], "fecha": _iso(fecha)})
 
     errores = validar(ds)
     if errores:
@@ -418,8 +428,8 @@ def validar(ds: dict[str, list[dict]]) -> list[str]:
     if insc & sigue:
         errores.append("Hay usuarios que siguen e están inscritos en el mismo curso")
     for e in ds["estrellas"]:
-        if (e["usuario"], e["curso"]) not in insc | sigue:
-            errores.append("Estrella de alguien que no sigue ni está inscrito")
+        if e["usuario"] not in ids_usuario or e["curso"] not in ids_curso:
+            errores.append("Estrella con referencias rotas")
             break
     unico("estrella (usuario, curso)", [(e["usuario"], e["curso"]) for e in ds["estrellas"]])
 
