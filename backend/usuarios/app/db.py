@@ -18,6 +18,7 @@ def init_driver() -> Driver:
 
 
 def close_driver() -> None:
+  global _driver
   if _driver is not None:
     _driver.close()
     _driver = None

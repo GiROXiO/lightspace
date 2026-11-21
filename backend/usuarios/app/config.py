@@ -3,7 +3,8 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-RAIZ = Path(__file__).resolve().parents[3]
+_carpetas = Path(__file__).resolve().parents
+RAIZ = _carpetas[min(3, len(_carpetas) - 1)]
 
 
 class Settings(BaseSettings):
