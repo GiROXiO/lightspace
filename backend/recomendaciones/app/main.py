@@ -1,43 +1,33 @@
-import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from neo4j import Session
 
-from . import db
+from . import db, notificaciones, recomendaciones
 from .config import settings
-from .schema import aplicar_esquema
-
-logger = logging.getLogger("uvicorn.error")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-  driver = db.init_driver()
-  total = aplicar_esquema(driver, settings.schema_path)
-  logger.info("Esquema aplicado: %s sentencias", total)
+  db.init_driver()
   yield
-  
+
   db.close_driver()
 
 
 app = FastAPI(
-  title="Lightspace API",
-  version="0.1.1",
+  title="Lightspace API - Recomendaciones y notificaciones",
+  version="0.2.0",
   docs_url="/api/docs",
   openapi_url="/api/openapi.json",
   lifespan=lifespan,
 )
 
-app.add_middleware(
-  CORSMiddleware,
-  allow_origins=settings.cors_origins,
-  allow_methods=["*"],
-  allow_headers=["*"],
-)
+app.include_router(recomendaciones.router)
+app.include_router(notificaciones.router)
 
-@app.get("/api/health", tags=["Estado"])
+
+@app.get("/health", tags=["Estado"])
 def health(session: Session = Depends(db.get_session)):
   try:
     session.run("RETURN 1 AS ok").single()
@@ -45,6 +35,6 @@ def health(session: Session = Depends(db.get_session)):
     raise HTTPException(status_code=503, detail="Base de datos no disponible")
   return {
     "estado": "ok",
-    "base_de_datos": "conectada",
+    "servicio": "recomendaciones",
     "periodo_vigente": settings.periodo_actual,
   }
