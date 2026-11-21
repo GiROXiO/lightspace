@@ -48,7 +48,7 @@ graph LR
 | `(Usuario)-[:MATRICULADO_EN]->(Curso)`      | `periodo`, `nrc`                             | Registro académico simulado: fuente de verdad para verificar matrícula                                                    |
 | `(Usuario)-[:INSCRITO_EN]->(Curso)`         | `desde`, `periodo`, `nrc`                    | Inscrito en la plataforma. Solo si existe `MATRICULADO_EN` en el periodo vigente. Copia `periodo` y `nrc` de la matrícula |
 | `(Usuario)-[:SIGUE]->(Curso)`               | `desde`                                      | Acceso al material sin estar matriculado                                                                                  |
-| `(Usuario)-[:DA_ESTRELLA]->(Curso)`         | `fecha`                                      | Una por usuario y curso                                                                                                   |
+| `(Usuario)-[:DA_ESTRELLA]->(Curso)`         | `fecha`                                      | Estadística de recomendación del curso. Una por usuario y curso. No depende de seguir ni de estar inscrito                |
 | `(Curso)-[:DE_PROGRAMA]->(Programa)`        |                                              | Carreras a las que aplica el curso                                                                                        |
 | `(Curso)-[:TRATA_SOBRE]->(Interes)`         |                                              | Temas del curso                                                                                                           |
 | `(Usuario)-[:PUBLICO]->(Publicacion)`       |                                              | Autor                                                                                                                     |
@@ -70,8 +70,8 @@ graph LR
 ## Reglas de negocio
 
 - **Seguir** un curso: cualquier usuario, sin verificación. Da acceso al material.
-- **Inscribirse**: solo si existe `MATRICULADO_EN` con `periodo` igual al periodo vigente. Al inscribirse se copian `periodo` y `nrc` a `INSCRITO_EN` y se elimina `SIGUE` (son excluyentes). La validación y la exclusión viven en el procedimiento `lightspace inscribir` (ver "Lógica en la base de datos").
-- **Estrella**: solo quien sigue o está inscrito. Una por usuario y curso.
+- **Inscribirse**: solo si existe `MATRICULADO_EN` con `periodo` igual al periodo vigente. Al inscribirse se copian `periodo` y `nrc` a `INSCRITO_EN` y se elimina `SIGUE` (son excluyentes). La validación y la exclusión viven en el procedimiento `lightspace.inscribir` (ver "Lógica en la base de datos").
+- **Estrella**: cualquier usuario autenticado puede dar estrella a cualquier curso, como en GitHub. Es una estadística aparte que indica qué tan recomendado es el curso: no depende de seguirlo ni de estar inscrito, y dejar de seguir no la quita. Una por usuario y curso; el usuario puede quitarla.
 - **Publicar material y pedir grupo** (`MATERIAL`, `BUSCA_GRUPO`): solo inscritos. **Preguntar**: inscritos y seguidores.
 - **Grupo**: los demás inscritos responden con comentario o `SE_UNIO`. Al llenarse los `cupos`, el `estado` pasa a `CERRADA` (lo hace el trigger `cerrar_grupo`, no el backend).
 - **Recomendar cursos**: filtro por carrera del usuario (`DE_PROGRAMA`); después, intereses en común, cursos que siguen usuarios parecidos y estrellas.
