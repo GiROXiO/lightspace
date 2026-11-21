@@ -63,6 +63,20 @@ def generar(n_usuarios: int = 120, semilla: int = 42, password_hash: str = "HASH
     ]
     ds["intereses"] = [{"nombre": nombre} for nombre in cat.INTERESES]
 
+    # NRC: cada curso recibe 3 secciones consecutivas (4 dígitos, sin cero inicial).
+    # Los bloques de cursos distintos van dispersos y nunca se solapan dentro de un periodo.
+    rng_nrc = random.Random(f"nrc-{semilla}")
+
+    def bloques_nrc(n: int) -> list[list[str]]:
+        franjas = rng_nrc.sample(range(900), n)  # franjas de 10 números: 1000-1009 ... 9990-9999
+        bloques = []
+        for franja in franjas:
+            inicio = 1000 + franja * 10 + rng_nrc.randint(0, 7)  # 3 secciones caben en la franja
+            bloques.append([str(inicio + s) for s in range(3)])
+        return bloques
+
+    nrc_vigente = bloques_nrc(len(cat.CURSOS))
+    nrc_anterior = bloques_nrc(len(cat.CURSOS))
 
     # Cursos (asignaturas). Los NRC se asignan por periodo: 3 secciones cada uno.
     cursos: list[dict] = []
@@ -76,8 +90,8 @@ def generar(n_usuarios: int = 120, semilla: int = 42, password_hash: str = "HASH
             "id": cid, "codigo": codigo, "semestre": semestre,
             "programas": claves, "intereses": intereses,
             "nrc": {
-                cat.PERIODO_VIGENTE: [str(10000 + i * 10 + s) for s in range(3)],
-                cat.PERIODO_ANTERIOR: [str(20000 + i * 10 + s) for s in range(3)],
+                cat.PERIODO_VIGENTE: nrc_vigente[i],
+                cat.PERIODO_ANTERIOR: nrc_anterior[i],
             },
         })
         ds["cursos"].append({
@@ -364,6 +378,16 @@ def generar(n_usuarios: int = 120, semilla: int = 42, password_hash: str = "HASH
         elif rng.random() < 0.6:
             notificar("CONEXION_ACEPTADA", x["origen"], x["destino"], fecha, clave,
                       f"{nombre_de[x['destino']]} aceptó tu solicitud de conexión")
+            
+    # Estrellas de cualquier usuario: estadística aparte, no exige seguir ni estar inscrito
+    dieron = {(e["usuario"], e["curso"]) for e in ds["estrellas"]}
+    for u in activos:
+        for c in rng.sample(cursos, rng.randint(0, 3)):
+            if (u["id"], c["id"]) in dieron or rng.random() >= 0.5:
+                continue
+            dieron.add((u["id"], c["id"]))
+            fecha = _entre(rng, INICIO_PERIODO - timedelta(days=30), ANCLA)
+            ds["estrellas"].append({"usuario": u["id"], "curso": c["id"], "fecha": _iso(fecha)})
 
     errores = validar(ds)
     if errores:
@@ -401,6 +425,11 @@ def validar(ds: dict[str, list[dict]]) -> list[str]:
     for m in ds["matriculas"]:
         if nrc_curso.setdefault((m["periodo"], m["nrc"]), m["curso"]) != m["curso"]:
             errores.append(f"El NRC {m['nrc']} de {m['periodo']} aparece en dos cursos")
+    for fila in ds["matriculas"] + ds["inscripciones"]:
+        nrc = fila["nrc"]
+        if not (len(nrc) == 4 and nrc.isdigit() and nrc[0] != "0"):
+            errores.append(f"NRC inválido (4 dígitos, sin empezar en 0): {nrc}")
+            break
     unico("matricula (usuario, curso, periodo)",
           [(m["usuario"], m["curso"], m["periodo"]) for m in ds["matriculas"]])
 
@@ -418,8 +447,8 @@ def validar(ds: dict[str, list[dict]]) -> list[str]:
     if insc & sigue:
         errores.append("Hay usuarios que siguen e están inscritos en el mismo curso")
     for e in ds["estrellas"]:
-        if (e["usuario"], e["curso"]) not in insc | sigue:
-            errores.append("Estrella de alguien que no sigue ni está inscrito")
+        if e["usuario"] not in ids_usuario or e["curso"] not in ids_curso:
+            errores.append("Estrella con referencias rotas")
             break
     unico("estrella (usuario, curso)", [(e["usuario"], e["curso"]) for e in ds["estrellas"]])
 
