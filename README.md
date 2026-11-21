@@ -4,28 +4,65 @@ Red social universitaria para conectar con otras personas, seguir e inscribirse 
 
 ## Stack
 
-| Capa            | Tecnología                                                                                    |
-| --------------- | --------------------------------------------------------------------------------------------- |
-| Base de datos   | Neo4j 5.26 Community (en Docker)                                                              |
-| Backend         | Python 3.13 + FastAPI                                                                         |
-| Frontend        | React + TypeScript + Vite, React Router, TanStack Query, Tailwind CSS + shadcn/ui (pendiente) |
-| Infraestructura | Docker Compose                                                                                |
+| Capa            | Tecnología                                                                                                                  |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Base de datos   | Neo4j 5.26 Community (en Docker). Lógica en la base con APOC (por confirmar)                                                |
+| Backend         | Python 3.13 + FastAPI, dividido en microservicios (usuarios, cursos, recomendaciones y notificaciones) detrás de un gateway |
+| Frontend        | React + TypeScript + Vite, React Router, TanStack Query, Tailwind CSS + shadcn/ui (pendiente)                               |
+| Infraestructura | Docker Compose                                                                                                              |
 
 ## Equipo
 
-| Integrante       | Rol                                                                          |
-| ---------------- | ---------------------------------------------------------------------------- |
-| Jeronimo Castro  | Frontend + base de datos (líder técnico)                                     |
-| Juan Arrieta     | Backend núcleo: cuenta, perfil, conexiones, publicaciones                    |
-| Juan Caceres     | Backend de cursos: catálogo, inscripción, estrellas, muro y grupos           |
-| Miguel Carrizosa | Backend de recomendaciones y notificaciones, pruebas, informe y sustentación |
+| Integrante       | Rol                                                                                    |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| Jeronimo Castro  | Frontend + base de datos + gateway e infraestructura (líder técnico)                   |
+| Juan Arrieta     | Backend núcleo, servicio de usuarios: cuenta, perfil, conexiones, publicaciones        |
+| Juan Caceres     | Backend de cursos, servicio de cursos: catálogo, inscripción, estrellas, muro y grupos |
+| Miguel Carrizosa | Backend de recomendaciones y notificaciones, pruebas, informe y sustentación           |
+
+## Requisitos mínimos del proyecto
+
+| Requisito                            | Cómo se cumple                                                                               | Estado                            |
+| ------------------------------------ | -------------------------------------------------------------------------------------------- | --------------------------------- |
+| Docker                               | Docker Compose con Neo4j, los tres servicios y el gateway. El frontend se suma cuando exista | Parcial                           |
+| API                                  | FastAPI con prefijo `/api`, Swagger por servicio y contrato en `docs/api.md`                 | Cumple                            |
+| Microservicios                       | Servicios de usuarios, cursos, y recomendaciones y notificaciones, detrás de un gateway      | Cumple (la base; falta su lógica) |
+| Procedimientos, funciones y triggers | APOC en Neo4j (ver `docs/modelo-grafo.md`)                                                   | Por implementar (fases 2 y 3)     |
+| Vistas                               | Procedimientos de solo lectura con consulta fija (ver `docs/modelo-grafo.md`)                | Por implementar (fases 2 y 3)     |
 
 ## Requisitos
 
 - **Docker Desktop** con WSL 2 y la virtualización habilitada en la BIOS (SVM Mode en AMD, Intel VT-x en Intel).
 - **Git**.
-- **Python 3.13**: solo si vas a correr el backend fuera de Docker.
+- **Python 3.13**: solo si vas a correr un servicio fuera de Docker.
 - **Node.js**: se usará cuando exista el frontend.
+
+## Arquitectura
+
+```mermaid
+graph LR
+    F[Frontend] --> G[Gateway :8000]
+    G --> U[Usuarios :8001]
+    G --> C[Cursos :8002]
+    G --> R[Recomendaciones y notificaciones :8003]
+    U --> N[(Neo4j)]
+    C --> N
+    R --> N
+```
+
+Cada servicio vive en su propia carpeta, con su `Dockerfile`, sus dependencias y su código en `app/`:
+
+| Carpeta                    | Servicio                         | Responsable |
+| -------------------------- | -------------------------------- | ----------- |
+| `backend/gateway/`         | Gateway                          | Castro      |
+| `backend/usuarios/`        | Usuarios                         | Arrieta     |
+| `backend/cursos/`          | Cursos                           | Caceres     |
+| `backend/recomendaciones/` | Recomendaciones y notificaciones | Carrizosa   |
+
+- El **gateway** es el único punto de entrada: el frontend solo conoce `http://localhost:8000/api`. Reenvía cada ruta al servicio dueño de su prefijo, responde `/api/health` y gestiona CORS.
+- Los servicios **no se llaman entre sí**: comparten una sola base Neo4j.
+- Solo **usuarios** emite tokens JWT y aplica `schema.cypher` al arrancar. Los demás únicamente validan el token con el mismo `JWT_SECRET`.
+- El detalle de rutas, reglas y responsables está en `docs/api.md`.
 
 ## Cómo ejecutar
 
@@ -53,7 +90,7 @@ Red social universitaria para conectar con otras personas, seguir e inscribirse 
    python -c "import secrets; print(secrets.token_urlsafe(48))"
    ```
 
-   El `.env` no se sube a GitHub. Cada integrante usa sus propios valores: no hace falta que coincidan. Si cambias `JWT_SECRET`, los tokens anteriores dejan de valer y hay que iniciar sesión otra vez.
+   El `.env` no se sube a GitHub. Cada integrante usa sus propios valores: no hace falta que coincidan. Dentro de tu máquina, los tres servicios reciben el mismo `JWT_SECRET`. Si lo cambias, los tokens anteriores dejan de valer y hay que iniciar sesión otra vez.
 
 3. Abre **Docker Desktop** y espera a que diga _Engine running_.
 
@@ -69,21 +106,34 @@ Red social universitaria para conectar con otras personas, seguir e inscribirse 
    docker compose ps
    ```
 
-   `lightspace-neo4j` debe estar en `healthy` (tarda unos 30 a 60 segundos la primera vez) y `lightspace-backend` en `Up`.
+   `lightspace-neo4j` debe estar en `healthy` (tarda unos 30 a 60 segundos la primera vez) y `lightspace-usuarios`, `lightspace-cursos`, `lightspace-recomendaciones` y `lightspace-gateway` en `Up`.
 
 6. Verifica en el navegador:
-   - `http://localhost:8000/api/health` debe responder `{"estado":"ok","base_de_datos":"conectada",...}`.
-   - `http://localhost:8000/api/docs` abre Swagger.
+   - `http://localhost:8000/api/health` debe responder `{"estado":"ok","servicios":{"usuarios":"ok","cursos":"ok","recomendaciones":"ok"},...}`. Si algún servicio está caído, responde `503` y nombra cuál.
+   - `http://localhost:8001/api/docs` abre el Swagger del servicio de usuarios (`8002` cursos, `8003` recomendaciones). El gateway no publica Swagger propio.
 
-El esquema de la base (restricciones e índices) se aplica solo cada vez que arranca el backend.
+El esquema de la base (restricciones e índices) lo aplica solo el servicio de usuarios cada vez que arranca.
+
+### Si ya tenías el proyecto levantado (versión con un solo backend)
+
+Después de traer los cambios, reconstruye y elimina el contenedor viejo `lightspace-backend`, que ya no existe:
+
+```bash
+git pull
+docker compose up -d --build --remove-orphans
+```
+
+Si el seed cambió, vuelve a cargar los datos de prueba (ver "Datos de prueba").
 
 ## Servicios
 
-| Servicio      | URL                              | Notas                                                                      |
-| ------------- | -------------------------------- | -------------------------------------------------------------------------- |
-| API           | `http://localhost:8000/api`      | Todas las rutas llevan el prefijo `/api`                                   |
-| Swagger       | `http://localhost:8000/api/docs` | Documentación y pruebas de la API                                          |
-| Neo4j Browser | `http://localhost:7474`          | Conectar a `bolt://localhost:7687`, usuario `neo4j`, contraseña del `.env` |
+| Servicio                         | URL                              | Notas                                                                      |
+| -------------------------------- | -------------------------------- | -------------------------------------------------------------------------- |
+| API (gateway)                    | `http://localhost:8000/api`      | Punto de entrada único. Todas las rutas llevan el prefijo `/api`           |
+| Usuarios                         | `http://localhost:8001/api/docs` | Swagger propio y `GET /health` interno                                     |
+| Cursos                           | `http://localhost:8002/api/docs` | Swagger propio y `GET /health` interno                                     |
+| Recomendaciones y notificaciones | `http://localhost:8003/api/docs` | Swagger propio y `GET /health` interno                                     |
+| Neo4j Browser                    | `http://localhost:7474`          | Conectar a `bolt://localhost:7687`, usuario `neo4j`, contraseña del `.env` |
 
 ## Base de datos
 
@@ -101,7 +151,7 @@ El esquema de la base (restricciones e índices) se aplica solo cada vez que arr
 
 ### Esquema
 
-`database/schema.cypher` define las restricciones de unicidad y los índices. Es idempotente (`IF NOT EXISTS`) y el backend lo aplica al arrancar. Para aplicarlo a mano:
+`database/schema.cypher` define las restricciones de unicidad y los índices. Es idempotente (`IF NOT EXISTS`) y el servicio de usuarios lo aplica al arrancar. Para aplicarlo a mano:
 
 ```bash
 docker compose exec -T neo4j sh -c 'cypher-shell -u neo4j -p "${NEO4J_AUTH#neo4j/}"' < database/schema.cypher
@@ -114,12 +164,16 @@ DROP CONSTRAINT nombre_de_la_restriccion IF EXISTS
 DROP INDEX nombre_del_indice IF EXISTS
 ```
 
+### Lógica en la base de datos (por confirmar)
+
+Triggers, procedimientos, funciones y vistas se implementan con el plugin APOC de Neo4j, bajo el espacio de nombres `lightspace`. Entran desde la fase 2; los endpoints de la fase 1 usan consultas directas. El catálogo completo está en `docs/modelo-grafo.md`.
+
 ### Datos de prueba (seed)
 
 Carga un conjunto determinista de datos simulados: programas, cursos, usuarios, matrículas, publicaciones, comentarios, conexiones y notificaciones. Los prefijos de materia (IST, MAT, LEY...) son los reales de la universidad; todo lo demás es simulado.
 
 ```bash
-docker compose exec -T backend sh -c 'cd /database && python -m seed.main --reset'
+docker compose exec -T usuarios sh -c 'cd /database && python -m seed.main --reset'
 ```
 
 | Opción         | Efecto                                           | Por defecto |
@@ -128,6 +182,14 @@ docker compose exec -T backend sh -c 'cd /database && python -m seed.main --rese
 | `--usuarios N` | Cantidad de usuarios                             | 120         |
 | `--semilla N`  | Semilla aleatoria (misma semilla = mismos datos) | 42          |
 | `--dry-run`    | Genera y valida sin tocar Neo4j                  | desactivado |
+
+Detalles del seed:
+
+- **NRC:** 4 dígitos, nunca empiezan en 0. Las 3 secciones de cada curso tienen NRC consecutivos; cursos distintos no siguen ningún orden.
+- **Dos periodos:** hay matrículas en el periodo vigente (`202630`) y en el anterior (`202610`), este último como historial. Solo el vigente cuenta para inscribirse.
+- **Estrellas:** pueden ser de cualquier usuario, no solo de quien sigue o está inscrito.
+- **Volumen del cronograma:** para 400 usuarios, `--usuarios 400`.
+- Si el seed cambia, hay que volver a ejecutarlo con `--reset` para tener los datos nuevos en tu base local.
 
 Cuentas demo (contraseña de todas: `Lightspace123!`):
 
@@ -141,30 +203,35 @@ Cuentas demo (contraseña de todas: `Lightspace123!`):
 
 ## Desarrollo del backend
 
-El backend corre en Docker y recarga solo al guardar cambios en `backend/app/`. Para editar con autocompletado y probar fuera de Docker:
+El backend corre en Docker y cada servicio recarga solo al guardar cambios en su carpeta `app/`. Para editar con autocompletado y probar fuera de Docker, un solo entorno virtual sirve para los cuatro servicios (comparten el mismo `requirements.txt`):
 
 ```bash
 cd backend
 python -m venv .venv
 source .venv/Scripts/activate      # Git Bash en Windows (en Linux/Mac: source .venv/bin/activate)
-pip install -r requirements.txt
+pip install -r usuarios/requirements.txt
 ```
 
-Si quieres ejecutarlo fuera de Docker, detén antes el contenedor para liberar el puerto 8000:
+Si quieres ejecutar un servicio fuera de Docker, detén antes su contenedor para liberar el puerto y arráncalo desde su carpeta (ejemplo con usuarios, puerto 8001; cursos usa 8002, recomendaciones 8003 y el gateway 8000):
 
 ```bash
-docker compose stop backend
-uvicorn app.main:app --reload
+docker compose stop usuarios
+cd usuarios
+uvicorn app.main:app --reload --port 8001
 ```
 
 Convenciones:
 
 - Todas las rutas van bajo el prefijo `/api`.
 - Cada endpoint pide su sesión de Neo4j con `Depends(db.get_session)`.
-- El periodo vigente es `PERIODO_ACTUAL` en `config.py` (`202630`).
-- Al agregar una librería: `pip install paquete` y `pip freeze > requirements.txt` (desde Git Bash, con el entorno activo).
-- Cada módulo va en su propio archivo dentro de `app/` y se registra en `main.py`.
-- Autenticación con JWT en el encabezado `Authorization: Bearer <token>`. Los endpoints protegidos usan `Depends(get_usuario_actual)` (en `app/auth.py`), que devuelve `{"id": ...}`.
+- El periodo vigente es `periodo_actual` (por defecto `202630`) en el `config.py` de cada servicio.
+- Al agregar una librería: `pip install paquete` y `pip freeze > requirements.txt` (desde Git Bash, con el entorno activo), en el `requirements.txt` del servicio al que pertenece.
+- Cada módulo va en su propio archivo dentro de `app/` de su servicio y se registra en el `main.py` de ese servicio.
+- Si añades un prefijo de ruta nuevo, regístralo también en `RUTAS` de `backend/gateway/app/main.py`; si no, el gateway responde `404`.
+- Autenticación con JWT en el encabezado `Authorization: Bearer <token>`. El servicio de usuarios lo emite (`backend/usuarios/app/auth.py`); cursos y recomendaciones lo validan con su `app/seguridad.py`. Los endpoints protegidos usan `Depends(get_usuario_actual)`, que devuelve `{"id": ...}`.
+- Cada integrante trabaja en la carpeta de su servicio; tocar el de otro se hace por Pull Request y con su revisión.
+- Solo el servicio de usuarios aplica `schema.cypher` al arrancar.
+- CORS lo gestiona el gateway (`backend/gateway/app/config.py`, origen permitido por defecto `http://localhost:5173`); los servicios no lo configuran.
 - Rutas, entradas y respuestas: ver `docs/api.md`. Si cambias algo, actualiza ese archivo **antes** de implementarlo y avisa al grupo.
 
 ## Flujo de trabajo
@@ -188,35 +255,41 @@ Cada integrante trabaja a su ritmo, pero debe llegar a cada corte con lo suyo te
 
 ## Comandos útiles
 
-| Comando                                                                              | Qué hace                                                  |
-| ------------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| `docker compose up -d --build`                                                       | Levanta (y reconstruye) todos los servicios               |
-| `docker compose ps`                                                                  | Estado de los contenedores                                |
-| `docker compose logs -f backend`                                                     | Logs del backend en vivo (`Ctrl + C` para salir)          |
-| `docker compose logs neo4j`                                                          | Logs de Neo4j                                             |
-| `docker compose stop`                                                                | Apaga los contenedores (los datos se conservan)           |
-| `docker compose down`                                                                | Apaga y elimina los contenedores (los datos se conservan) |
-| `docker compose down -v`                                                             | Elimina también el volumen: **borra los datos**           |
-| `docker compose exec -T backend sh -c 'cd /database && python -m seed.main --reset'` | Recarga los datos de prueba (**borra la base**)           |
+| Comando                                                                               | Qué hace                                                                                    |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `docker compose up -d --build`                                                        | Levanta (y reconstruye) todos los servicios                                                 |
+| `docker compose up -d --build --remove-orphans`                                       | Igual, y elimina contenedores de servicios que ya no existen (tras actualizar)              |
+| `docker compose ps`                                                                   | Estado de los contenedores                                                                  |
+| `docker compose logs -f usuarios`                                                     | Logs de un servicio en vivo (`cursos`, `recomendaciones`, `gateway`; `Ctrl + C` para salir) |
+| `docker compose logs neo4j`                                                           | Logs de Neo4j                                                                               |
+| `docker compose restart cursos`                                                       | Reinicia un servicio                                                                        |
+| `docker compose stop`                                                                 | Apaga los contenedores (los datos se conservan)                                             |
+| `docker compose down`                                                                 | Apaga y elimina los contenedores (los datos se conservan)                                   |
+| `docker compose down -v`                                                              | Elimina también el volumen: **borra los datos**                                             |
+| `docker compose exec -T usuarios sh -c 'cd /database && python -m seed.main --reset'` | Recarga los datos de prueba (**borra la base**)                                             |
+| `curl -i http://localhost:8000/api/health`                                            | Estado del gateway y de los tres servicios                                                  |
 
 ## Solución de problemas
 
-| Problema                                                           | Causa y solución                                                                                            |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `failed to connect to the docker API ... dockerDesktopLinuxEngine` | Docker Desktop no está encendido. Ábrelo y espera _Engine running_                                          |
-| Docker Desktop dice _Virtualization is disabled in firmware_       | Habilita la virtualización en la BIOS (SVM Mode en AMD, Intel VT-x en Intel)                                |
-| `lightspace-neo4j` no llega a `healthy`                            | Revisa `docker compose logs neo4j`. Si el volumen tiene otra contraseña, usa `docker compose down -v`       |
-| El backend no arranca con un error de validación                   | Falta `NEO4J_PASSWORD` o `JWT_SECRET` en el `.env` (paso 2 de "Cómo ejecutar")                              |
-| `failed to read dockerfile`                                        | El archivo debe llamarse exactamente `backend/Dockerfile`, sin extensión                                    |
-| Puerto 8000 ocupado                                                | Hay un `uvicorn` local corriendo. Detenlo con `Ctrl + C`                                                    |
-| Puerto 7687 ocupado                                                | Hay una instancia de Neo4j Desktop encendida. Apágala                                                       |
-| La contraseña del `.env` no funciona                               | Se cambió después de crear el volumen. Usa `docker compose down -v`                                         |
-| Swagger responde `401` en una ruta protegida                       | Falta el token. En Swagger usa el botón _Authorize_ y pega el `access_token` que devuelve `/api/auth/login` |
+| Problema                                                           | Causa y solución                                                                                                       |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `failed to connect to the docker API ... dockerDesktopLinuxEngine` | Docker Desktop no está encendido. Ábrelo y espera _Engine running_                                                     |
+| Docker Desktop dice _Virtualization is disabled in firmware_       | Habilita la virtualización en la BIOS (SVM Mode en AMD, Intel VT-x en Intel)                                           |
+| `lightspace-neo4j` no llega a `healthy`                            | Revisa `docker compose logs neo4j`. Si el volumen tiene otra contraseña, usa `docker compose down -v`                  |
+| Un servicio no arranca con un error de validación                  | Falta `NEO4J_PASSWORD` (mínimo 8 caracteres) o `JWT_SECRET` (mínimo 32) en el `.env` (paso 2 de "Cómo ejecutar")       |
+| `/api/health` responde `503`                                       | Un servicio está caído o arrancando; el mensaje dice cuál. Mira `docker compose ps` y `docker compose logs <servicio>` |
+| Una ruta responde `404` con "La ruta no existe"                    | El prefijo no está registrado en `RUTAS` de `backend/gateway/app/main.py`, o la ruta está mal escrita                  |
+| Aparece el contenedor viejo `lightspace-backend`                   | Quedó de la versión con un solo backend. Usa `docker compose up -d --build --remove-orphans`                           |
+| `failed to read dockerfile`                                        | Cada servicio necesita su `Dockerfile` exactamente con ese nombre, sin extensión, en su carpeta                        |
+| Puerto 8000, 8001, 8002 u 8003 ocupado                             | Hay un `uvicorn` local corriendo. Detenlo con `Ctrl + C`                                                               |
+| Puerto 7687 ocupado                                                | Hay una instancia de Neo4j Desktop encendida. Apágala                                                                  |
+| La contraseña del `.env` no funciona                               | Se cambió después de crear el volumen. Usa `docker compose down -v`                                                    |
+| Swagger responde `401` en una ruta protegida                       | Falta el token. En Swagger usa el botón _Authorize_ y pega el `access_token` que devuelve `/api/auth/login`            |
 
 ## Documentación
 
-- `docs/modelo-grafo.md`: modelo del grafo.
-- `docs/api.md`: contrato de la API (fase 1: registro, login, perfil y cursos).
+- `docs/modelo-grafo.md`: modelo del grafo, reglas de negocio y lógica en la base de datos (triggers, procedimientos, funciones y vistas).
+- `docs/api.md`: arquitectura de servicios y contrato de la API (fase 1: registro, login, perfil, cursos y seguir).
 
 ## Estado
 
@@ -228,4 +301,6 @@ Cada integrante trabaja a su ritmo, pero debe llegar a cada corte con lo suyo te
 - [x] Seed de datos
 - [x] Contrato de la API (`docs/api.md`)
 - [x] Configuración de JWT
+- [x] Arquitectura de servicios: usuarios, cursos, recomendaciones y gateway con CORS
+- [ ] APOC: triggers, procedimientos, funciones y vistas (fases 2 y 3)
 - [ ] Frontend base
