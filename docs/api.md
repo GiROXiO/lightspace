@@ -2,7 +2,52 @@
 
 Documento vivo. Responsable: Jeronimo Castro. Cualquier cambio a una ruta, entrada o respuesta se avisa al grupo y se actualiza aquí **antes** de implementarlo.
 
-Alcance: lo necesario para el **corte 1** (jueves 19 de noviembre): registro, login, perfil y lista de cursos de punta a punta. Seguir, inscribirse, conexiones, publicaciones, notificaciones y recomendaciones se agregan en las fases 2 y 3.
+Alcance: lo necesario para el **corte 1** (jueves 19 de noviembre): registro, login, perfil, lista de cursos y seguir o dejar de seguir de punta a punta. Inscribirse, estrellas, conexiones, publicaciones, notificaciones y recomendaciones se agregan en las fases 2 y 3.
+
+## Arquitectura de servicios
+
+> **Por confirmar:** puertos, reparto de rutas y la tecnología del gateway. Se ajustan al implementar el compose.
+
+El backend se divide en servicios independientes (cada uno con su carpeta, su `Dockerfile` y sus dependencias) que comparten una sola base Neo4j. Todos van detrás de un **gateway**, que es el único punto de entrada: el frontend y Swagger solo conocen `http://localhost:8000/api`.
+
+| Servicio                         | Carpeta                    | Rutas (prefijos)                                                                                                                   | Responsable | Puerto interno |
+| -------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------- | -------------- |
+| Gateway                          | `backend/gateway/`         | `/api/health` y reenvío de `/api/*` al servicio que corresponda                                                                    | Castro      | 8000           |
+| Usuarios                         | `backend/usuarios/`        | `/api/auth`, `/api/usuarios`, `/api/programas`, `/api/intereses`. Fase 2: `/api/conexiones`, `/api/publicaciones`, `/api/busqueda` | Arrieta     | 8001           |
+| Cursos                           | `backend/cursos/`          | `/api/cursos` (incluye seguir, inscripción, estrellas, muro y grupos)                                                              | Caceres     | 8002           |
+| Recomendaciones y notificaciones | `backend/recomendaciones/` | `/api/recomendaciones`, `/api/notificaciones`                                                                                      | Carrizosa   | 8003           |
+
+Reglas de la arquitectura:
+
+- Cada servicio tiene su propia conexión a Neo4j. Ninguno llama a otro por HTTP: lo que comparten lo leen del grafo.
+- Solo el servicio de **usuarios** emite tokens. Los otros dos únicamente los validan.
+- Solo el servicio de **usuarios** aplica `schema.cypher` al arrancar, para evitar que tres servicios lo apliquen a la vez.
+- Si un servicio está caído, el gateway responde `503`.
+- En desarrollo, cada servicio publica además su Swagger en su puerto (`http://localhost:800X/api/docs`).
+
+### `GET /api/health`
+
+Sin sesión. Lo responde el gateway consultando el estado de los tres servicios, de modo que solo dice `ok` si **todos** están vivos y conectados a Neo4j.
+
+Respuesta `200`:
+
+```json
+{
+  "estado": "ok",
+  "servicios": { "usuarios": "ok", "cursos": "ok", "recomendaciones": "ok" },
+  "periodo_vigente": "202630"
+}
+```
+
+Respuesta `503` si falla alguno (el `detail` nombra los servicios caídos):
+
+```json
+{
+  "detail": "Servicios no disponibles: cursos"
+}
+```
+
+Cada servicio expone internamente un `GET /health` (sin prefijo `/api`, no pasa por el gateway) que el gateway consulta.
 
 ## Convenciones
 
@@ -34,6 +79,7 @@ Todos los errores propios devuelven:
 | `404`  | El recurso no existe                                                                                     |
 | `409`  | Conflicto de unicidad (correo o código ya registrados)                                                   |
 | `422`  | Falla de validación de Pydantic. Lo genera FastAPI con su formato estándar; no se modifica               |
+| `503`  | El gateway no puede llegar al servicio (está caído o arrancando)                                         |
 
 ### Autenticación con JWT
 
@@ -41,17 +87,17 @@ Todos los errores propios devuelven:
 - Contenido (`claims`): `sub` = id del usuario, `iat` y `exp`.
 - Duración: 24 horas.
 - Respuesta de registro y login: `{ "access_token": "...", "token_type": "bearer", "usuario": { ... } }`.
-- Se implementa **una sola vez** en `backend/app/auth.py`. Los demás endpoints protegidos la reutilizan así:
+- Se emite en `backend/usuarios/app/auth.py` (registro y login). Los servicios de cursos y de recomendaciones incluyen su propio `app/seguridad.py`, que **solo valida** el token con el mismo `JWT_SECRET`. Los endpoints protegidos lo reutilizan así:
 
 ```python
-from app.auth import get_usuario_actual
+from app.seguridad import get_usuario_actual   # en usuarios: from app.auth import get_usuario_actual
 
 @router.get("/algo")
 def algo(usuario: dict = Depends(get_usuario_actual), session=Depends(db.get_session)):
     uid = usuario["id"]
 ```
 
-`get_usuario_actual` verifica el token, comprueba que el usuario siga existiendo y devuelve `{"id": "<uuid>"}`. Si algo falla, responde `401`.
+`get_usuario_actual` verifica el token, comprueba que el usuario siga existiendo en Neo4j y devuelve `{"id": "<uuid>"}`. Si algo falla, responde `401`.
 
 ### Reglas que afectan a todos
 
@@ -61,14 +107,17 @@ def algo(usuario: dict = Depends(get_usuario_actual), session=Depends(db.get_ses
 - Cada endpoint pide su sesión con `Depends(db.get_session)`.
 - Las consultas Cypher de abajo son **referencia**: se pueden reescribir mientras la entrada y la respuesta se mantengan.
 
-## Configuración que hay que agregar (una vez)
+## Configuración que hay que agregar (una vez por servicio)
 
-| Dónde                                                   | Qué                                                                                         |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `backend/requirements.txt`                              | `PyJWT` y `email-validator` (la necesita `EmailStr`). Después, `pip freeze`                 |
-| `backend/app/config.py`                                 | `jwt_secret: str` (obligatoria), `jwt_algoritmo: str = "HS256"`, `jwt_horas: int = 24`      |
-| `.env` y `.env.example`                                 | `JWT_SECRET=<texto largo aleatorio>`                                                        |
-| `docker-compose.yml`, servicio `backend`, `environment` | `JWT_SECRET: ${JWT_SECRET}` (sin esto el contenedor no la recibe, aunque esté en el `.env`) |
+Cada servicio de la API (usuarios, cursos y recomendaciones) necesita lo siguiente. En la base del proyecto ya está aplicado; al crear un servicio nuevo hay que repetirlo en su carpeta.
+
+| Dónde                                                         | Qué                                                                                                                                                                        |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `backend/<servicio>/requirements.txt`                         | `PyJWT` en los tres. `email-validator` (la necesita `EmailStr`) solo en usuarios. Después, `pip freeze`                                                                    |
+| `backend/<servicio>/app/config.py`                            | `jwt_secret: str` (obligatoria, mínimo 32 caracteres), `jwt_algoritmo: str = "HS256"`, `jwt_horas: int = 24`. También `neo4j_password` (mínimo 8 caracteres) y `neo4j_uri` |
+| `.env` y `.env.example` (raíz, compartidos por los servicios) | `JWT_SECRET=<texto largo aleatorio>`                                                                                                                                       |
+| `docker-compose.yml`, cada servicio, `environment`            | `JWT_SECRET: ${JWT_SECRET}` y las variables `NEO4J_*` (sin esto el contenedor no las recibe, aunque estén en el `.env`)                                                    |
+| `docker-compose.yml`, servicio `gateway`, `environment`       | Las direcciones internas de los servicios (usuarios, cursos y recomendaciones). El gateway no valida tokens, así que no necesita `JWT_SECRET`                              |
 
 Generar el valor de `JWT_SECRET`:
 
@@ -76,33 +125,35 @@ Generar el valor de `JWT_SECRET`:
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-Cada integrante usa el suyo en su `.env`. Si falta, el backend no arranca.
+Cada integrante usa el suyo en su `.env`, pero dentro de una misma máquina **los tres servicios reciben el mismo valor**, porque solo así el token que emite usuarios lo pueden validar cursos y recomendaciones. Si falta, o tiene menos de 32 caracteres, el servicio no arranca.
 
 ## Módulos y responsables
 
-| Archivo            | Rutas                                               | Responsable |
-| ------------------ | --------------------------------------------------- | ----------- |
-| `app/auth.py`      | `/api/auth/*` y la dependencia `get_usuario_actual` | Arrieta     |
-| `app/usuarios.py`  | `/api/usuarios/me`                                  | Arrieta     |
-| `app/catalogos.py` | `/api/programas`, `/api/intereses`                  | Arrieta     |
-| `app/cursos.py`    | `/api/cursos`                                       | Caceres     |
+| Servicio | Archivo                             | Rutas                                               | Responsable |
+| -------- | ----------------------------------- | --------------------------------------------------- | ----------- |
+| Usuarios | `backend/usuarios/app/auth.py`      | `/api/auth/*` y la dependencia `get_usuario_actual` | Arrieta     |
+| Usuarios | `backend/usuarios/app/usuarios.py`  | `/api/usuarios/me`                                  | Arrieta     |
+| Usuarios | `backend/usuarios/app/catalogos.py` | `/api/programas`, `/api/intereses`                  | Arrieta     |
+| Cursos   | `backend/cursos/app/cursos.py`      | `/api/cursos`                                       | Caceres     |
 
-Cada módulo define `router = APIRouter(prefix="/api/...", tags=["..."])` y se registra en `main.py` con `app.include_router(...)`.
+Cada módulo define `router = APIRouter(prefix="/api/...", tags=["..."])` y se registra en el `main.py` de su servicio con `app.include_router(...)`.
 
-**Orden sugerido:** Arrieta publica primero un PR pequeño con `auth.py` (solo `get_usuario_actual` y la creación del token). Así Caceres puede proteger `/api/cursos` sin esperar el resto.
+**Orden sugerido:** Arrieta publica primero un PR pequeño con `auth.py` (solo `get_usuario_actual` y la creación del token). Caceres copia la validación a `backend/cursos/app/seguridad.py` y puede proteger `/api/cursos` sin esperar el resto.
 
 ## Tabla de endpoints
 
-| Método  | Ruta                 | Descripción                                         | Sesión | Responsable |
-| ------- | -------------------- | --------------------------------------------------- | ------ | ----------- |
-| `GET`   | `/api/programas`     | Lista de programas (para el formulario de registro) | No     | Arrieta     |
-| `GET`   | `/api/intereses`     | Lista de intereses                                  | No     | Arrieta     |
-| `POST`  | `/api/auth/registro` | Crea una cuenta y devuelve el token                 | No     | Arrieta     |
-| `POST`  | `/api/auth/login`    | Inicia sesión y devuelve el token                   | No     | Arrieta     |
-| `GET`   | `/api/usuarios/me`   | Perfil del usuario autenticado                      | Sí     | Arrieta     |
-| `PATCH` | `/api/usuarios/me`   | Edita el perfil                                     | Sí     | Arrieta     |
-| `GET`   | `/api/cursos`        | Lista de cursos con filtros y paginación            | Sí     | Caceres     |
-| `GET`   | `/api/cursos/{id}`   | Detalle de un curso                                 | Sí     | Caceres     |
+| Método   | Ruta                      | Descripción                                         | Sesión | Responsable |
+| -------- | ------------------------- | --------------------------------------------------- | ------ | ----------- |
+| `GET`    | `/api/programas`          | Lista de programas (para el formulario de registro) | No     | Arrieta     |
+| `GET`    | `/api/intereses`          | Lista de intereses                                  | No     | Arrieta     |
+| `POST`   | `/api/auth/registro`      | Crea una cuenta y devuelve el token                 | No     | Arrieta     |
+| `POST`   | `/api/auth/login`         | Inicia sesión y devuelve el token                   | No     | Arrieta     |
+| `GET`    | `/api/usuarios/me`        | Perfil del usuario autenticado                      | Sí     | Arrieta     |
+| `PATCH`  | `/api/usuarios/me`        | Edita el perfil                                     | Sí     | Arrieta     |
+| `GET`    | `/api/cursos`             | Lista de cursos con filtros y paginación            | Sí     | Caceres     |
+| `GET`    | `/api/cursos/{id}`        | Detalle de un curso                                 | Sí     | Caceres     |
+| `POST`   | `/api/cursos/{id}/seguir` | Empieza a seguir un curso                           | Sí     | Caceres     |
+| `DELETE` | `/api/cursos/{id}/seguir` | Deja de seguir un curso                             | Sí     | Caceres     |
 
 ---
 
@@ -433,6 +484,39 @@ Sesión requerida. Respuesta `200`: todos los campos de un item de la lista, má
 | `dio_estrella` | `true` si el usuario tiene `DA_ESTRELLA` hacia el curso                         |
 
 Errores: `404` "El curso no existe".
+
+### `POST /api/cursos/{id}/seguir`
+
+Sesión requerida. Sin cuerpo. Es **idempotente**: si el usuario ya lo sigue, responde igual.
+
+Respuesta `200`:
+
+```json
+{ "relacion": "SIGUE" }
+```
+
+Errores: `404` "El curso no existe"; `409` "Ya estás inscrito en este curso" (seguir e inscribirse son excluyentes).
+
+```cypher
+MATCH (u:Usuario {id: $uid}), (c:Curso {id: $curso_id})
+MERGE (u)-[s:SIGUE]->(c)
+ON CREATE SET s.desde = datetime()
+```
+
+Antes, comprobar que el curso existe y que no hay `INSCRITO_EN`. El frontend debe ocultar el botón "seguir" cuando `relacion` sea `"INSCRITO"`.
+
+### `DELETE /api/cursos/{id}/seguir`
+
+Sesión requerida. Es idempotente. **No afecta a la estrella**: la estrella es una estadística aparte del curso, no depende de seguirlo.
+
+Respuesta `204`, sin cuerpo.
+
+Errores: `404` "El curso no existe".
+
+```cypher
+MATCH (:Usuario {id: $uid})-[s:SIGUE]->(:Curso {id: $curso_id})
+DELETE s
+```
 
 ---
 
