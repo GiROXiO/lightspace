@@ -111,13 +111,13 @@ def algo(usuario: dict = Depends(get_usuario_actual), session=Depends(db.get_ses
 
 Cada servicio de la API (usuarios, cursos y recomendaciones) necesita lo siguiente. En la base del proyecto ya está aplicado; al crear un servicio nuevo hay que repetirlo en su carpeta.
 
-| Dónde                                                         | Qué                                                                                                                                                                        |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `backend/<servicio>/requirements.txt`                         | `PyJWT` en los tres. `email-validator` (la necesita `EmailStr`) solo en usuarios. Después, `pip freeze`                                                                    |
-| `backend/<servicio>/app/config.py`                            | `jwt_secret: str` (obligatoria, mínimo 32 caracteres), `jwt_algoritmo: str = "HS256"`, `jwt_horas: int = 24`. También `neo4j_password` (mínimo 8 caracteres) y `neo4j_uri` |
-| `.env` y `.env.example` (raíz, compartidos por los servicios) | `JWT_SECRET=<texto largo aleatorio>`                                                                                                                                       |
-| `docker-compose.yml`, cada servicio, `environment`            | `JWT_SECRET: ${JWT_SECRET}` y las variables `NEO4J_*` (sin esto el contenedor no las recibe, aunque estén en el `.env`)                                                    |
-| `docker-compose.yml`, servicio `gateway`, `environment`       | Las direcciones internas de los servicios (usuarios, cursos y recomendaciones). El gateway no valida tokens, así que no necesita `JWT_SECRET`                              |
+| Dónde                                                         | Qué                                                                                                                                                                                                                       |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `backend/<servicio>/requirements.txt`                         | `PyJWT` en los tres. `email-validator` (la necesita `EmailStr`) solo en usuarios. Después, `pip freeze`                                                                                                                   |
+| `backend/<servicio>/app/config.py`                            | `jwt_secret: str` (obligatoria, mínimo 32 caracteres) y `jwt_algoritmo: str = "HS256"`. `jwt_horas: int = 24` solo en usuarios, que es quien emite el token. También `neo4j_password` (mínimo 8 caracteres) y `neo4j_uri` |
+| `.env` y `.env.example` (raíz, compartidos por los servicios) | `JWT_SECRET=<texto largo aleatorio>`                                                                                                                                                                                      |
+| `docker-compose.yml`, cada servicio, `environment`            | `JWT_SECRET: ${JWT_SECRET}` y las variables `NEO4J_*` (sin esto el contenedor no las recibe, aunque estén en el `.env`)                                                                                                   |
+| `docker-compose.yml`, servicio `gateway`, `environment`       | Las direcciones internas de los servicios (usuarios, cursos y recomendaciones). El gateway no valida tokens, así que no necesita `JWT_SECRET`                                                                             |
 
 Generar el valor de `JWT_SECRET`:
 
