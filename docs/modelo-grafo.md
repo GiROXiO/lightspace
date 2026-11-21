@@ -64,7 +64,7 @@ graph LR
 ## Periodo académico y NRC
 
 - `periodo` es texto con formato `AAAA` + `10`, `20` o `30`: `10` primer semestre, `20` vacacional, `30` segundo semestre. Ej.: `202630`.
-- `nrc` es texto. Identifica una sección concreta de un curso **en un periodo**, así que solo es único dentro de ese periodo. Por eso vive en la relación y no en `Curso`.
+- `nrc` es texto de **4 dígitos** que nunca empieza en 0 (convención de la universidad). Las secciones de un mismo curso en un periodo tienen NRC consecutivos (ej. `1890` a `1893`); cursos distintos no siguen ningún orden entre sí. Identifica una sección concreta de un curso **en un periodo**, así que solo es único dentro de ese periodo. Por eso vive en la relación y no en `Curso`.
 - El **periodo vigente** se configura en el backend (`PERIODO_ACTUAL`, por ahora `202630`).
 
 ## Reglas de negocio

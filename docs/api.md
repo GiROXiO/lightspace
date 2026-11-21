@@ -57,7 +57,7 @@ Cada servicio expone internamente un `GET /health` (sin prefijo `/api`, no pasa 
 | Formato          | JSON (`Content-Type: application/json`), propiedades en `snake_case`                                                              |
 | Ids              | UUID en texto                                                                                                                     |
 | Fechas           | ISO 8601 en UTC con `Z`, ej. `2026-08-04T10:30:00Z`. En Neo4j son `datetime`: convertir con `.to_native()` y luego `.isoformat()` |
-| `periodo`, `nrc` | Texto (`"202630"`, `"10020"`)                                                                                                     |
+| `periodo`, `nrc` | Texto (`"202630"`, `"1892"`). El `nrc` tiene 4 dígitos y no empieza en 0                                                          |
 | Autenticación    | `Authorization: Bearer <token>` (JWT). Las rutas marcadas "Sí" en la columna **Sesión** la exigen                                 |
 | Contraseña       | Nunca se devuelve. `password_hash` no sale en ninguna respuesta                                                                   |
 | Correo           | Se guarda y compara en minúsculas                                                                                                 |
@@ -468,7 +468,7 @@ Sesión requerida. Respuesta `200`: todos los campos de un item de la lista, má
   "programas": [
     { "codigo": "SIS", "nombre": "Ingeniería de Sistemas y Computación" }
   ],
-  "matricula": { "periodo": "202630", "nrc": "10092" },
+  "matricula": { "periodo": "202630", "nrc": "1892" },
   "total_inscritos": 14,
   "total_seguidores": 6,
   "total_estrellas": 5,
