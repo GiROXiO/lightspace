@@ -320,3 +320,7 @@ export function refCurso(id: string) {
   const c = buscar(id)!;
   return { id: c.id, codigo: c.codigo, nombre: c.nombre };
 }
+
+// Lo que necesitan las recomendaciones
+export const catalogoPara = (uid: string) =>
+  cursos.map((c) => ({ ...aItem(c, uid), estrellas: totalEstrellas(c) }));

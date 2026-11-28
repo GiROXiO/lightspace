@@ -5,6 +5,10 @@ import { BotonesConexion } from "@/components/BotonesConexion";
 import { FilaPersona } from "@/components/FilaPersona";
 import { ListaPublicaciones } from "@/components/ListaPublicaciones";
 import { NuevaPublicacion } from "@/components/NuevaPublicacion";
+import {
+  CursosSugeridos,
+  PersonasRecomendadas,
+} from "@/components/Recomendaciones";
 import { Card, CardContent } from "@/components/ui/card";
 import { useSolicitudes } from "@/lib/conexiones";
 import { useSesion } from "@/sesion/contexto";
@@ -16,7 +20,7 @@ function Panel() {
   if (!usuario) return null;
 
   return (
-    <aside className="sticky top-6 hidden space-y-4 lg:block">
+    <aside className="sticky top-6 hidden max-h-[calc(100vh-3rem)] space-y-4 overflow-y-auto lg:block">
       <Card>
         <CardContent>
           <Link to="/perfil" className="flex items-center gap-3">
@@ -53,6 +57,8 @@ function Panel() {
           </CardContent>
         </Card>
       )}
+      <PersonasRecomendadas limite={4} />
+      <CursosSugeridos limite={3} />
     </aside>
   );
 }

@@ -1,6 +1,7 @@
 // Estructura común: barra lateral en computador, barras arriba y abajo en celular.
 import { Bell, BookOpen, House, LogOut, Search, User } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
+import { useSinLeer } from "@/lib/notificaciones";
 import { useSesion } from "@/sesion/contexto";
 
 const enlaces = [
@@ -22,9 +23,22 @@ function Marca() {
   );
 }
 
+// Número sobre la campana
+function Contador({ ruta }: { ruta: string }) {
+  const { data: sinLeer = 0 } = useSinLeer();
+  if (ruta !== "/notificaciones" || sinLeer === 0) return null;
+  return (
+    <span className="absolute -top-1.5 -right-2 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 font-semibold text-primary-foreground">
+      {sinLeer > 9 ? "9+" : sinLeer}
+      <span className="sr-only"> sin leer</span>
+    </span>
+  );
+}
+
 export function Disposicion() {
   const { cerrarSesion } = useSesion();
 
+  // Cursos usa toda la pantalla; el inicio deja sitio al panel; el resto, una columna
   const { pathname } = useLocation();
   const ancho = pathname.startsWith("/cursos")
     ? "max-w-6xl"
@@ -52,7 +66,10 @@ export function Disposicion() {
                 }`
               }
             >
-              <Icono className="size-5" />
+              <span className="relative">
+                <Icono className="size-5" />
+                <Contador ruta={ruta} />
+              </span>
               {texto}
             </NavLink>
           ))}
@@ -94,7 +111,10 @@ export function Disposicion() {
               `rounded-lg p-3 ${isActive ? "text-primary" : "text-muted-foreground"}`
             }
           >
-            <Icono className="size-6" />
+            <span className="relative block">
+              <Icono className="size-6" />
+              <Contador ruta={ruta} />
+            </span>
           </NavLink>
         ))}
       </nav>

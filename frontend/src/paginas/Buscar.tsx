@@ -2,6 +2,7 @@
 import { useSearchParams } from "react-router";
 import { BotonesConexion } from "@/components/BotonesConexion";
 import { FilaPersona } from "@/components/FilaPersona";
+import { PersonasRecomendadas } from "@/components/Recomendaciones";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -82,6 +83,7 @@ function MiRed() {
             </Card>
           ),
       )}
+      <PersonasRecomendadas limite={5} />
       <Card>
         <CardContent>
           <h2 className="text-lg">
