@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { useSesion } from "@/sesion/contexto";
+import { useConexiones } from "@/lib/conexiones";
 
 const mesYAnio = new Intl.DateTimeFormat("es-CO", {
   month: "long",
@@ -28,6 +29,7 @@ export function Perfil() {
     mutationFn: () => api<void>("DELETE", "/usuarios/me"),
     onSuccess: cerrarSesion,
   });
+  const conexiones = useConexiones();
 
   if (!usuario) return null;
 
@@ -55,7 +57,13 @@ export function Perfil() {
               </h1>
               <p className="text-sm font-semibold">{usuario.programa.nombre}</p>
               <p className="text-sm text-muted-foreground">
-                Semestre {usuario.semestre}
+                Semestre {usuario.semestre} ·{" "}
+                <Link to="/buscar" className="font-semibold hover:text-primary">
+                  {conexiones.data?.pages[0].total ?? 0}{" "}
+                  {conexiones.data?.pages[0].total === 1
+                    ? "conexión"
+                    : "conexiones"}
+                </Link>
               </p>
             </div>
           </div>

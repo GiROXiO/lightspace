@@ -8,6 +8,8 @@ import { Registro } from "@/paginas/Registro";
 import { RutaProtegida } from "@/sesion/RutaProtegida";
 import { Curso } from "@/paginas/Curso";
 import { Cursos } from "@/paginas/Cursos";
+import { Buscar } from "@/paginas/Buscar";
+import { PerfilPublico } from "@/paginas/PerfilPublico";
 
 export default function App() {
   return (
@@ -17,7 +19,8 @@ export default function App() {
       <Route element={<RutaProtegida />}>
         <Route element={<Disposicion />}>
           <Route path="/" element={<Proximamente titulo="Inicio" />} />
-          <Route path="/buscar" element={<Proximamente titulo="Buscar" />} />
+          <Route path="/buscar" element={<Buscar />} />
+          <Route path="/usuarios/:id" element={<PerfilPublico />} />
           <Route path="/cursos" element={<Cursos />} />
           <Route path="/cursos/:id" element={<Curso />} />
           <Route

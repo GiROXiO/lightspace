@@ -4,6 +4,7 @@ import { despachar } from "./servidor";
 // Cada archivo de rutas se importa aquí para que quede registrado
 import "./cuenta";
 import "./cursos";
+import "./conexiones";
 
 const RETARDO_MS = 250;
 

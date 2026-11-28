@@ -1,6 +1,5 @@
 // Explorar el catálogo y ver mis cursos. Los filtros viven en la dirección,
 // así que se conservan al volver desde el detalle.
-import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { CLASE_SELECT } from "@/components/SelectorSemestre";
 import { TarjetaCurso } from "@/components/TarjetaCurso";
@@ -9,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useProgramas } from "@/lib/catalogos";
 import { useCursos, useMisCursos, type FiltrosCursos } from "@/lib/cursos";
 import type { CursoItem } from "@/types/api";
+import { useRetrasado } from "@/lib/useRetrasado";
 
 const REJILLA = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 const Aviso = ({ texto }: { texto: string }) => (
@@ -25,22 +25,12 @@ function Lista({ cursos }: { cursos: CursoItem[] }) {
   );
 }
 
-// Devuelve el valor cuando deja de cambiar, para no buscar en cada letra
-function useRetrasado(valor: string, ms: number) {
-  const [retrasado, setRetrasado] = useState(valor);
-  useEffect(() => {
-    const espera = setTimeout(() => setRetrasado(valor), ms);
-    return () => clearTimeout(espera);
-  }, [valor, ms]);
-  return retrasado;
-}
-
 function Explorar() {
   const [params, setParams] = useSearchParams();
   const programas = useProgramas();
   const texto = params.get("q") ?? "";
   const filtros: FiltrosCursos = {
-    q: useRetrasado(texto.trim(), 300),
+    q: useRetrasado(texto.trim()),
     programa: params.get("programa") ?? "",
     semestre: params.get("semestre") ?? "",
   };
