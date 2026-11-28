@@ -2,7 +2,7 @@
 
 Documento vivo. Responsable: Jeronimo Castro. Cualquier cambio a una ruta, entrada o respuesta se avisa al grupo y se actualiza aquí **antes** de implementarlo.
 
-Alcance: lo necesario para el **corte 1** (jueves 19 de noviembre): registro, login, perfil, lista de cursos y seguir o dejar de seguir de punta a punta. Inscribirse, estrellas, conexiones, publicaciones, notificaciones y recomendaciones se agregan en las fases 2 y 3.
+Alcance: la **fase 1** (registro, login, perfil, lista de cursos y seguir o dejar de seguir) y las **fases 2 y 3** (inscripción, estrellas, conexiones, publicaciones, muro del curso, "busco grupo", notificaciones y recomendaciones), incluidas las operaciones de editar y borrar.
 
 ## Arquitectura de servicios
 
@@ -62,6 +62,7 @@ Cada servicio expone internamente un `GET /health` (sin prefijo `/api`, no pasa 
 | Contraseña       | Nunca se devuelve. `password_hash` no sale en ninguna respuesta                                                                   |
 | Correo           | Se guarda y compara en minúsculas                                                                                                 |
 | Paginación       | `pagina` (desde 1) y `tamano` (por defecto 20, máximo 100)                                                                        |
+| Listas paginadas | Responden `{ "total": 0, "pagina": 1, "tamano": 20, "items": [] }`                                                                |
 
 ### Formato de errores
 
@@ -75,9 +76,9 @@ Todos los errores propios devuelven:
 | ------ | -------------------------------------------------------------------------------------------------------- |
 | `400`  | Petición válida en forma pero con datos imposibles (ej. interés que no existe)                           |
 | `401`  | Falta el token, está vencido o es inválido; credenciales incorrectas. Incluye `WWW-Authenticate: Bearer` |
-| `403`  | Autenticado pero sin permiso (fases posteriores)                                                         |
+| `403`  | Autenticado pero sin permiso (no es el autor, no está matriculado o inscrito)                            |
 | `404`  | El recurso no existe                                                                                     |
-| `409`  | Conflicto de unicidad (correo o código ya registrados)                                                   |
+| `409`  | Conflicto: correo o código ya registrados, o la acción no cabe en el estado actual (ej. grupo lleno)     |
 | `422`  | Falla de validación de Pydantic. Lo genera FastAPI con su formato estándar; no se modifica               |
 | `503`  | El gateway no puede llegar al servicio (está caído o arrancando)                                         |
 
@@ -129,12 +130,17 @@ Cada integrante usa el suyo en su `.env`, pero dentro de una misma máquina **lo
 
 ## Módulos y responsables
 
-| Servicio | Archivo                             | Rutas                                               | Responsable |
-| -------- | ----------------------------------- | --------------------------------------------------- | ----------- |
-| Usuarios | `backend/usuarios/app/auth.py`      | `/api/auth/*` y la dependencia `get_usuario_actual` | Arrieta     |
-| Usuarios | `backend/usuarios/app/usuarios.py`  | `/api/usuarios/me`                                  | Arrieta     |
-| Usuarios | `backend/usuarios/app/catalogos.py` | `/api/programas`, `/api/intereses`                  | Arrieta     |
-| Cursos   | `backend/cursos/app/cursos.py`      | `/api/cursos`                                       | Caceres     |
+| Servicio        | Archivo                                          | Rutas                                               | Responsable |
+| --------------- | ------------------------------------------------ | --------------------------------------------------- | ----------- |
+| Usuarios        | `backend/usuarios/app/auth.py`                   | `/api/auth/*` y la dependencia `get_usuario_actual` | Arrieta     |
+| Usuarios        | `backend/usuarios/app/usuarios.py`               | `/api/usuarios/me`                                  | Arrieta     |
+| Usuarios        | `backend/usuarios/app/catalogos.py`              | `/api/programas`, `/api/intereses`                  | Arrieta     |
+| Cursos          | `backend/cursos/app/cursos.py`                   | `/api/cursos`                                       | Caceres     |
+| Usuarios        | `backend/usuarios/app/conexiones.py`             | `/api/conexiones`                                   | Arrieta     |
+| Usuarios        | `backend/usuarios/app/publicaciones.py`          | `/api/publicaciones`                                | Arrieta     |
+| Usuarios        | `backend/usuarios/app/busqueda.py`               | `/api/busqueda`                                     | Arrieta     |
+| Recomendaciones | `backend/recomendaciones/app/recomendaciones.py` | `/api/recomendaciones`                              | Carrizosa   |
+| Recomendaciones | `backend/recomendaciones/app/notificaciones.py`  | `/api/notificaciones`                               | Carrizosa   |
 
 Cada módulo define `router = APIRouter(prefix="/api/...", tags=["..."])` y se registra en el `main.py` de su servicio con `app.include_router(...)`.
 
@@ -142,18 +148,55 @@ Cada módulo define `router = APIRouter(prefix="/api/...", tags=["..."])` y se r
 
 ## Tabla de endpoints
 
-| Método   | Ruta                      | Descripción                                         | Sesión | Responsable |
-| -------- | ------------------------- | --------------------------------------------------- | ------ | ----------- |
-| `GET`    | `/api/programas`          | Lista de programas (para el formulario de registro) | No     | Arrieta     |
-| `GET`    | `/api/intereses`          | Lista de intereses                                  | No     | Arrieta     |
-| `POST`   | `/api/auth/registro`      | Crea una cuenta y devuelve el token                 | No     | Arrieta     |
-| `POST`   | `/api/auth/login`         | Inicia sesión y devuelve el token                   | No     | Arrieta     |
-| `GET`    | `/api/usuarios/me`        | Perfil del usuario autenticado                      | Sí     | Arrieta     |
-| `PATCH`  | `/api/usuarios/me`        | Edita el perfil                                     | Sí     | Arrieta     |
-| `GET`    | `/api/cursos`             | Lista de cursos con filtros y paginación            | Sí     | Caceres     |
-| `GET`    | `/api/cursos/{id}`        | Detalle de un curso                                 | Sí     | Caceres     |
-| `POST`   | `/api/cursos/{id}/seguir` | Empieza a seguir un curso                           | Sí     | Caceres     |
-| `DELETE` | `/api/cursos/{id}/seguir` | Deja de seguir un curso                             | Sí     | Caceres     |
+| Método   | Ruta                                           | Descripción                                         | Sesión | Responsable |
+| -------- | ---------------------------------------------- | --------------------------------------------------- | ------ | ----------- |
+| `GET`    | `/api/programas`                               | Lista de programas (para el formulario de registro) | No     | Arrieta     |
+| `GET`    | `/api/intereses`                               | Lista de intereses                                  | No     | Arrieta     |
+| `POST`   | `/api/auth/registro`                           | Crea una cuenta y devuelve el token                 | No     | Arrieta     |
+| `POST`   | `/api/auth/login`                              | Inicia sesión y devuelve el token                   | No     | Arrieta     |
+| `GET`    | `/api/usuarios/me`                             | Perfil del usuario autenticado                      | Sí     | Arrieta     |
+| `PATCH`  | `/api/usuarios/me`                             | Edita el perfil                                     | Sí     | Arrieta     |
+| `GET`    | `/api/cursos`                                  | Lista de cursos con filtros y paginación            | Sí     | Caceres     |
+| `GET`    | `/api/cursos/{id}`                             | Detalle de un curso                                 | Sí     | Caceres     |
+| `POST`   | `/api/cursos/{id}/seguir`                      | Empieza a seguir un curso                           | Sí     | Caceres     |
+| `DELETE` | `/api/cursos/{id}/seguir`                      | Deja de seguir un curso                             | Sí     | Caceres     |
+| `DELETE` | `/api/usuarios/me`                             | Elimina mi cuenta                                   | Sí     | Arrieta     |
+| `GET`    | `/api/usuarios/{id}`                           | Perfil público                                      | Sí     | Arrieta     |
+| `GET`    | `/api/usuarios/{id}/publicaciones`             | Publicaciones generales de un usuario               | Sí     | Arrieta     |
+| `GET`    | `/api/busqueda/usuarios`                       | Busca personas                                      | Sí     | Arrieta     |
+| `GET`    | `/api/conexiones`                              | Mis conexiones                                      | Sí     | Arrieta     |
+| `GET`    | `/api/conexiones/solicitudes`                  | Solicitudes recibidas y enviadas                    | Sí     | Arrieta     |
+| `POST`   | `/api/conexiones`                              | Envía una solicitud                                 | Sí     | Arrieta     |
+| `POST`   | `/api/conexiones/{usuario_id}/aceptar`         | Acepta una solicitud                                | Sí     | Arrieta     |
+| `DELETE` | `/api/conexiones/{usuario_id}`                 | Rechaza, cancela o elimina                          | Sí     | Arrieta     |
+| `GET`    | `/api/publicaciones`                           | Feed                                                | Sí     | Arrieta     |
+| `POST`   | `/api/publicaciones`                           | Crea una publicación general                        | Sí     | Arrieta     |
+| `GET`    | `/api/publicaciones/{id}`                      | Una publicación                                     | Sí     | Arrieta     |
+| `PATCH`  | `/api/publicaciones/{id}`                      | Edita (autor)                                       | Sí     | Arrieta     |
+| `DELETE` | `/api/publicaciones/{id}`                      | Borra (autor)                                       | Sí     | Arrieta     |
+| `POST`   | `/api/publicaciones/{id}/like`                 | Da "me gusta"                                       | Sí     | Arrieta     |
+| `DELETE` | `/api/publicaciones/{id}/like`                 | Quita "me gusta"                                    | Sí     | Arrieta     |
+| `GET`    | `/api/publicaciones/{id}/comentarios`          | Lista comentarios                                   | Sí     | Arrieta     |
+| `POST`   | `/api/publicaciones/{id}/comentarios`          | Comenta                                             | Sí     | Arrieta     |
+| `PATCH`  | `/api/publicaciones/{id}/comentarios/{cid}`    | Edita un comentario                                 | Sí     | Arrieta     |
+| `DELETE` | `/api/publicaciones/{id}/comentarios/{cid}`    | Borra un comentario                                 | Sí     | Arrieta     |
+| `GET`    | `/api/cursos/mios`                             | Mis cursos                                          | Sí     | Caceres     |
+| `POST`   | `/api/cursos/{id}/inscripcion`                 | Me inscribe                                         | Sí     | Caceres     |
+| `DELETE` | `/api/cursos/{id}/inscripcion`                 | Cancela la inscripción                              | Sí     | Caceres     |
+| `POST`   | `/api/cursos/{id}/estrella`                    | Da estrella                                         | Sí     | Caceres     |
+| `DELETE` | `/api/cursos/{id}/estrella`                    | Quita estrella                                      | Sí     | Caceres     |
+| `GET`    | `/api/cursos/{id}/muro`                        | Muro del curso                                      | Sí     | Caceres     |
+| `POST`   | `/api/cursos/{id}/publicaciones`               | Publica en el curso                                 | Sí     | Caceres     |
+| `GET`    | `/api/cursos/grupos/{publicacion_id}/miembros` | Integrantes de un grupo                             | Sí     | Caceres     |
+| `POST`   | `/api/cursos/grupos/{publicacion_id}/miembros` | Me une al grupo                                     | Sí     | Caceres     |
+| `DELETE` | `/api/cursos/grupos/{publicacion_id}/miembros` | Me salgo del grupo                                  | Sí     | Caceres     |
+| `PATCH`  | `/api/cursos/grupos/{publicacion_id}`          | Abre o cierra el grupo (autor)                      | Sí     | Caceres     |
+| `GET`    | `/api/recomendaciones/personas`                | Personas recomendadas                               | Sí     | Carrizosa   |
+| `GET`    | `/api/recomendaciones/cursos`                  | Cursos recomendados                                 | Sí     | Carrizosa   |
+| `GET`    | `/api/notificaciones`                          | Mis notificaciones                                  | Sí     | Carrizosa   |
+| `PATCH`  | `/api/notificaciones/{id}/leida`               | Marca una como leída                                | Sí     | Carrizosa   |
+| `POST`   | `/api/notificaciones/leidas`                   | Marca todas como leídas                             | Sí     | Carrizosa   |
+| `DELETE` | `/api/notificaciones/{id}`                     | Elimina una                                         | Sí     | Carrizosa   |
 
 ---
 
@@ -518,17 +561,260 @@ MATCH (:Usuario {id: $uid})-[s:SIGUE]->(:Curso {id: $curso_id})
 DELETE s
 ```
 
+## Objetos comunes (fases 2 y 3)
+
+`UsuarioResumen`:
+
+```json
+{
+  "id": "uuid",
+  "nombre": "Ana",
+  "apellido": "Pérez",
+  "semestre": 4,
+  "programa": {
+    "codigo": "SIS",
+    "nombre": "Ingeniería de Sistemas y Computación"
+  }
+}
+```
+
+`relacion_conexion`: `"NINGUNA"`, `"ENVIADA"` (yo envié la solicitud), `"RECIBIDA"` o `"CONECTADOS"`.
+
+`Publicacion`:
+
+```json
+{
+  "id": "uuid",
+  "tipo": "BUSCA_GRUPO",
+  "contenido": "Busco grupo...",
+  "fecha": "2026-11-20T15:00:00Z",
+  "enlace": null,
+  "actividad": "el proyecto final",
+  "cupos": 3,
+  "estado": "ABIERTA",
+  "autor": { "...": "UsuarioResumen" },
+  "curso": { "id": "uuid", "codigo": "IST 3010", "nombre": "Bases de Datos" },
+  "total_likes": 2,
+  "total_comentarios": 1,
+  "me_gusta": false,
+  "total_unidos": 1,
+  "unido": false
+}
+```
+
+`curso` es `null` en las publicaciones `GENERAL`. `enlace` solo aplica a `MATERIAL`; `actividad`, `cupos`, `estado`, `total_unidos` y `unido` solo a `BUSCA_GRUPO` (en los demás van `null`).
+
+`Comentario`:
+
+```json
+{
+  "id": "uuid",
+  "contenido": "Me apunto",
+  "fecha": "2026-11-20T16:00:00Z",
+  "autor": { "...": "UsuarioResumen" }
+}
+```
+
+---
+
+## Cuenta y perfil público
+
+### `DELETE /api/usuarios/me`
+
+Respuesta `204`. Borra el usuario y todo lo suyo: publicaciones (con sus comentarios y notificaciones), comentarios, notificaciones recibidas u originadas y todas sus relaciones, incluida la matrícula simulada. El token deja de servir.
+
+### `GET /api/usuarios/{id}`
+
+No incluye correo, código estudiantil ni `password_hash`. En FastAPI, declarar `/me` **antes** que `/{id}`.
+
+```json
+{
+  "id": "uuid",
+  "nombre": "Ana",
+  "apellido": "Pérez",
+  "semestre": 4,
+  "bio": "...",
+  "programa": {
+    "codigo": "SIS",
+    "nombre": "Ingeniería de Sistemas y Computación"
+  },
+  "intereses": ["Programación"],
+  "total_conexiones": 12,
+  "relacion_conexion": "NINGUNA"
+}
+```
+
+Errores: `404` "El usuario no existe".
+
+### `GET /api/usuarios/{id}/publicaciones`
+
+Lista paginada de `Publicacion` de tipo `GENERAL`, de la más reciente a la más antigua.
+
+### `GET /api/busqueda/usuarios?q=`
+
+Lista paginada de `UsuarioResumen`, cada uno con `relacion_conexion`. Usa el índice `usuario_busqueda` y no incluye al usuario autenticado. `q` es obligatorio (mínimo 2 caracteres).
+
+---
+
+## Conexiones
+
+| Ruta                                        | Entrada                    | Respuesta                                                                            | Errores                                                     |
+| ------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| `GET /api/conexiones`                       | paginación                 | Lista paginada de `UsuarioResumen` con `desde`                                       |                                                             |
+| `GET /api/conexiones/solicitudes`           |                            | `{ "recibidas": [ { "usuario": UsuarioResumen, "desde": "..." } ], "enviadas": [] }` |                                                             |
+| `POST /api/conexiones`                      | `{ "usuario_id": "uuid" }` | `201` `{ "relacion_conexion": "ENVIADA" }`                                           | `400` a uno mismo; `404`; `409` ya hay conexión o solicitud |
+| `POST /api/conexiones/{usuario_id}/aceptar` |                            | `200` `{ "relacion_conexion": "CONECTADOS" }`                                        | `404` no hay solicitud recibida                             |
+| `DELETE /api/conexiones/{usuario_id}`       |                            | `204` (rechaza, cancela o elimina)                                                   | `404` no hay relación                                       |
+
+Al crear `CONECTA_CON`, usar `MERGE` **sin dirección** para no duplicar la relación en sentido contrario.
+
+---
+
+## Publicaciones, likes y comentarios
+
+- `GET /api/publicaciones`: feed paginado. Publicaciones `GENERAL` mías y de mis conexiones aceptadas, de la más reciente a la más antigua.
+- `POST /api/publicaciones`: `{ "contenido": "..." }` (1 a 2000 caracteres). Responde `201` con la `Publicacion` (`GENERAL`).
+- `GET /api/publicaciones/{id}`: una `Publicacion`. `404` "La publicación no existe".
+- `PATCH /api/publicaciones/{id}`: campos opcionales `contenido`, `enlace`, `actividad`. Sirve también para las de curso. `403` si no soy el autor.
+- `DELETE /api/publicaciones/{id}`: `204`. Borra también comentarios, likes, uniones y notificaciones relacionadas. `403` si no soy el autor.
+- `POST` y `DELETE /api/publicaciones/{id}/like`: idempotentes. Responden `{ "total_likes": 3, "me_gusta": true }`.
+- `GET /api/publicaciones/{id}/comentarios`: lista paginada de `Comentario`, del más antiguo al más reciente.
+- `POST /api/publicaciones/{id}/comentarios`: `{ "contenido": "..." }` (1 a 500). `201` con el `Comentario`. En un `BUSCA_GRUPO` solo comentan los inscritos del curso y el autor (`403`).
+- `PATCH .../comentarios/{cid}`: `{ "contenido": "..." }`. Solo el autor del comentario.
+- `DELETE .../comentarios/{cid}`: `204`. El autor del comentario o el de la publicación.
+
+---
+
+## Cursos: inscripción, estrellas, muro y grupos
+
+### `GET /api/cursos/mios`
+
+Lista (sin paginar) de los cursos en los que estoy matriculado en el periodo vigente, inscrito o siguiendo. Cada item es igual al de `GET /api/cursos`, más `"matricula": { "periodo": "202630", "nrc": "1892" }` o `null`. Declarar esta ruta **antes** que `/{id}`.
+
+### Inscripción
+
+- `POST /api/cursos/{id}/inscripcion`: idempotente. `200` `{ "relacion": "INSCRITO", "matricula": { "periodo": "202630", "nrc": "1892" } }`. `403` "No estás matriculado en este curso en el periodo vigente"; `404`. Usa el procedimiento `custom.lightspace.inscribir`.
+- `DELETE /api/cursos/{id}/inscripcion`: `204`, idempotente. No borra la matrícula ni la estrella, y no vuelve a poner "seguir".
+
+### Estrellas
+
+`POST` y `DELETE /api/cursos/{id}/estrella`: idempotentes, sin verificar matrícula. Responden `{ "total_estrellas": 6, "dio_estrella": true }`.
+
+### Muro del curso
+
+- `GET /api/cursos/{id}/muro?tipo=`: lista paginada de `Publicacion` del curso, de la más reciente a la más antigua. **La ve cualquier usuario con sesión.** `tipo` opcional: `MATERIAL`, `PREGUNTA` o `BUSCA_GRUPO`.
+- `POST /api/cursos/{id}/publicaciones`: `201` con la `Publicacion`.
+
+```json
+{
+  "tipo": "BUSCA_GRUPO",
+  "contenido": "...",
+  "enlace": null,
+  "actividad": "el taller 2",
+  "cupos": 3
+}
+```
+
+| Tipo          | Quién puede publicar   | Campos obligatorios además de `contenido` |
+| ------------- | ---------------------- | ----------------------------------------- |
+| `MATERIAL`    | Inscritos              | `enlace` (URL)                            |
+| `PREGUNTA`    | Inscritos y seguidores | ninguno                                   |
+| `BUSCA_GRUPO` | Inscritos              | `actividad`, `cupos` (1 a 10)             |
+
+Errores: `403` sin permiso; `404`; `422`.
+
+### Grupos ("busco grupo")
+
+- `GET /api/cursos/grupos/{publicacion_id}/miembros`: lista de `UsuarioResumen` (sin contar al autor).
+- `POST .../miembros`: solo inscritos del curso, distintos del autor. `200` `{ "estado": "ABIERTA", "total_unidos": 2, "unido": true }`. `403` sin permiso; `409` "El grupo está cerrado". Usa `custom.lightspace.unirse_grupo`; al llenarse los cupos, el trigger `cerrar_grupo` lo cierra.
+- `DELETE .../miembros`: `200` con la misma forma. Salirse no reabre el grupo.
+- `PATCH /api/cursos/grupos/{publicacion_id}`: `{ "estado": "CERRADA" }` o `"ABIERTA"`. Solo el autor; `409` al abrir un grupo sin cupos libres.
+
+---
+
+## Recomendaciones
+
+`limite` opcional (1 a 50, por defecto 10). Son un "top", por eso no se paginan. Respuesta: lista ordenada por `score`.
+
+`GET /api/recomendaciones/personas` (`custom.lightspace.recomendar_personas`):
+
+```json
+[
+  {
+    "id": "uuid",
+    "nombre": "Ana",
+    "apellido": "Pérez",
+    "semestre": 4,
+    "programas": ["Ingeniería de Sistemas y Computación"],
+    "score": 0.5289,
+    "intereses_comunes": ["Programación"],
+    "cursos_comunes": ["IST 3010"],
+    "conexiones_comunes": 2
+  }
+]
+```
+
+`GET /api/recomendaciones/cursos` (`custom.lightspace.recomendar_cursos`):
+
+```json
+[
+  {
+    "id": "uuid",
+    "codigo": "IST 3010",
+    "materia": "IST",
+    "numero": "3010",
+    "nombre": "Bases de Datos",
+    "creditos": 3,
+    "nivel": "Pregrado",
+    "semestre_sugerido": 6,
+    "departamento": "...",
+    "score": 0.6821,
+    "intereses_comunes": ["Programación"],
+    "seguidores_parecidos": 4,
+    "estrellas": 7
+  }
+]
+```
+
+---
+
+## Notificaciones
+
+Las **crean los triggers** de la base; no hay ruta ni código del backend que las genere.
+
+- `GET /api/notificaciones?solo_no_leidas=false`: lista paginada, de la más reciente a la más antigua, con un campo extra `no_leidas`.
+
+```json
+{
+  "total": 11,
+  "no_leidas": 3,
+  "pagina": 1,
+  "tamano": 20,
+  "items": [
+    {
+      "id": "uuid",
+      "tipo": "LIKE",
+      "mensaje": "...",
+      "leida": false,
+      "fecha": "2026-11-20T16:00:00Z",
+      "origen": { "id": "uuid", "nombre": "Ana", "apellido": "Pérez" },
+      "publicacion_id": "uuid"
+    }
+  ]
+}
+```
+
+- `PATCH /api/notificaciones/{id}/leida`: `200` `{ "id": "uuid", "leida": true }`. `404` si no existe o no es mía.
+- `POST /api/notificaciones/leidas`: `{ "total_marcadas": 3 }`.
+- `DELETE /api/notificaciones/{id}`: `204`. `404` si no existe o no es mía.
+
 ---
 
 ## Qué sigue (no está en este contrato)
 
-Fase 2 (corte 2): conexiones, publicaciones, seguir e inscribirse con verificación de matrícula, estrellas.
-Fase 3 (corte 3): muro del curso, "busco grupo", notificaciones y recomendaciones.
+Si da tiempo:
 
-Estas rutas se documentan aquí antes de implementarse.
+- Rol **administrador**, para gestionar el catálogo (cursos, programas e intereses), que hoy es de solo lectura.
+- **Profesores** (nodo `Profesor` y relación `DICTA`): cada profesor podrá editar los cursos que dicta.
 
-## Cuándo un endpoint está terminado
-
-Funciona en Swagger con los datos del seed, su efecto se verificó en Neo4j Browser, tiene al menos una prueba automatizada y está documentado aquí (rutas, entrada y respuesta reales).
-
-Cuentas para probar (contraseña `Lightspace123!`): `demo.sistemas@lightspace.example.com`, `demo.industrial@lightspace.example.com`, `demo.derecho@lightspace.example.com`, `demo.medicina@lightspace.example.com`, `demo.nuevo@lightspace.example.com`.
+Cualquier ruta nueva se documenta aquí antes de implementarse.

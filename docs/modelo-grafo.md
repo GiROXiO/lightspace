@@ -69,7 +69,7 @@ graph LR
 
 ## Reglas de negocio
 
-- **Seguir** un curso: cualquier usuario, sin verificación. Da acceso al material.
+- **Seguir** un curso: cualquier usuario, sin verificación. Sirve para tenerlo en "Mis cursos" y para las recomendaciones. No es un permiso: el muro de un curso lo ve cualquier usuario con sesión.
 - **Inscribirse**: solo si existe `MATRICULADO_EN` con `periodo` igual al periodo vigente. Al inscribirse se copian `periodo` y `nrc` a `INSCRITO_EN` y se elimina `SIGUE` (son excluyentes). La validación y la exclusión viven en el procedimiento `lightspace.inscribir` (ver "Lógica en la base de datos").
 - **Estrella**: cualquier usuario autenticado puede dar estrella a cualquier curso, como en GitHub. Es una estadística aparte que indica qué tan recomendado es el curso: no depende de seguirlo ni de estar inscrito, y dejar de seguir no la quita. Una por usuario y curso; el usuario puede quitarla.
 - **Publicar material y pedir grupo** (`MATERIAL`, `BUSCA_GRUPO`): solo inscritos. **Preguntar**: inscritos y seguidores.
@@ -136,5 +136,5 @@ Neo4j no tiene vistas como SQL. Aquí una vista es un procedimiento de **solo le
 
 ## Pendiente (fases posteriores)
 
-- Nodo `Profesor` y relación `DICTA`, para recomendar profesores.
+- Nodo `Profesor` y relación `DICTA`, para recomendar profesores y para que cada profesor pueda editar sus cursos. Junto a esto, un posible rol administrador.
 - Nodo `Seccion` (NRC, periodo, horario, profesor), si se necesita modelar las secciones del registro. Hoy el `nrc` vive en `MATRICULADO_EN` e `INSCRITO_EN`.
