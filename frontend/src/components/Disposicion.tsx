@@ -1,6 +1,6 @@
 // Estructura común: barra lateral en computador, barras arriba y abajo en celular.
 import { Bell, BookOpen, House, LogOut, Search, User } from "lucide-react";
-import { Link, NavLink, Outlet } from "react-router";
+import { Link, NavLink, Outlet, useLocation } from "react-router";
 import { useSesion } from "@/sesion/contexto";
 
 const enlaces = [
@@ -24,6 +24,10 @@ function Marca() {
 
 export function Disposicion() {
   const { cerrarSesion } = useSesion();
+
+  const ancho = useLocation().pathname.startsWith("/cursos")
+    ? "max-w-6xl"
+    : "max-w-2xl";
 
   return (
     <div className="min-h-screen md:pl-60">
@@ -72,7 +76,7 @@ export function Disposicion() {
         </button>
       </header>
 
-      <main className="mx-auto w-full max-w-2xl px-4 py-6 pb-24 md:pb-6">
+      <main className={`mx-auto w-full px-4 py-6 pb-24 md:pb-6 ${ancho}`}>
         <Outlet />
       </main>
 

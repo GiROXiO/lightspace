@@ -6,6 +6,8 @@ import { Perfil } from "@/paginas/Perfil";
 import { Proximamente } from "@/paginas/Proximamente";
 import { Registro } from "@/paginas/Registro";
 import { RutaProtegida } from "@/sesion/RutaProtegida";
+import { Curso } from "@/paginas/Curso";
+import { Cursos } from "@/paginas/Cursos";
 
 export default function App() {
   return (
@@ -16,7 +18,8 @@ export default function App() {
         <Route element={<Disposicion />}>
           <Route path="/" element={<Proximamente titulo="Inicio" />} />
           <Route path="/buscar" element={<Proximamente titulo="Buscar" />} />
-          <Route path="/cursos" element={<Proximamente titulo="Cursos" />} />
+          <Route path="/cursos" element={<Cursos />} />
+          <Route path="/cursos/:id" element={<Curso />} />
           <Route
             path="/notificaciones"
             element={<Proximamente titulo="Notificaciones" />}

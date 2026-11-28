@@ -3,6 +3,7 @@ import { aDataUrl } from "./archivos";
 import { despachar } from "./servidor";
 // Cada archivo de rutas se importa aquí para que quede registrado
 import "./cuenta";
+import "./cursos";
 
 const RETARDO_MS = 250;
 
