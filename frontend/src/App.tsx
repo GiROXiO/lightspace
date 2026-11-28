@@ -10,6 +10,8 @@ import { Curso } from "@/paginas/Curso";
 import { Cursos } from "@/paginas/Cursos";
 import { Buscar } from "@/paginas/Buscar";
 import { PerfilPublico } from "@/paginas/PerfilPublico";
+import { Inicio } from "@/paginas/Inicio";
+import { VerPublicacion } from "@/paginas/VerPublicacion";
 
 export default function App() {
   return (
@@ -18,7 +20,8 @@ export default function App() {
       <Route path="/registro" element={<Registro />} />
       <Route element={<RutaProtegida />}>
         <Route element={<Disposicion />}>
-          <Route path="/" element={<Proximamente titulo="Inicio" />} />
+          <Route path="/" element={<Inicio />} />
+          <Route path="/publicaciones/:id" element={<VerPublicacion />} />
           <Route path="/buscar" element={<Buscar />} />
           <Route path="/usuarios/:id" element={<PerfilPublico />} />
           <Route path="/cursos" element={<Cursos />} />

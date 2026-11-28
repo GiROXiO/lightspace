@@ -13,7 +13,7 @@ export function FilaPersona({ persona, children }: Props) {
     <li className="flex flex-wrap items-center gap-3 py-3">
       <Link
         to={`/usuarios/${persona.id}`}
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="flex min-w-0 flex-1 basis-40 items-center gap-3 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <Avatar
           nombre={persona.nombre}

@@ -5,6 +5,7 @@ import { BotonesConexion } from "@/components/BotonesConexion";
 import { Card, CardContent } from "@/components/ui/card";
 import { usePerfilPublico } from "@/lib/conexiones";
 import { useSesion } from "@/sesion/contexto";
+import { ListaPublicaciones } from "@/components/ListaPublicaciones";
 
 export function PerfilPublico() {
   const { id = "" } = useParams();
@@ -20,47 +21,53 @@ export function PerfilPublico() {
     return <p className="py-8 text-center text-destructive">{error.message}</p>;
 
   return (
-    <Card>
-      <CardContent className="space-y-4">
-        <div className="flex items-center gap-4 sm:gap-6">
-          <Avatar
-            nombre={perfil.nombre}
-            apellido={perfil.apellido}
-            foto={perfil.foto_url}
-            tamano="lg"
-          />
-          <div className="min-w-0 space-y-1">
-            <h1 className="text-2xl break-words">
-              {perfil.nombre} {perfil.apellido}
-            </h1>
-            <p className="text-sm font-semibold">{perfil.programa.nombre}</p>
-            <p className="text-sm text-muted-foreground">
-              Semestre {perfil.semestre} · {perfil.total_conexiones}{" "}
-              {perfil.total_conexiones === 1 ? "conexión" : "conexiones"}
-            </p>
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4 sm:gap-6">
+            <Avatar
+              nombre={perfil.nombre}
+              apellido={perfil.apellido}
+              foto={perfil.foto_url}
+              tamano="lg"
+            />
+            <div className="min-w-0 space-y-1">
+              <h1 className="text-2xl break-words">
+                {perfil.nombre} {perfil.apellido}
+              </h1>
+              <p className="text-sm font-semibold">{perfil.programa.nombre}</p>
+              <p className="text-sm text-muted-foreground">
+                Semestre {perfil.semestre} · {perfil.total_conexiones}{" "}
+                {perfil.total_conexiones === 1 ? "conexión" : "conexiones"}
+              </p>
+            </div>
           </div>
-        </div>
-        <p className="text-sm break-words whitespace-pre-line empty:hidden">
-          {perfil.bio}
-        </p>
-        <ul
-          aria-label="Intereses"
-          className="flex flex-wrap gap-2 empty:hidden"
-        >
-          {perfil.intereses.map((interes) => (
-            <li
-              key={interes}
-              className="rounded-full bg-accent px-3 py-1 text-sm text-accent-foreground"
-            >
-              {interes}
-            </li>
-          ))}
-        </ul>
-        <BotonesConexion
-          usuarioId={perfil.id}
-          relacion={perfil.relacion_conexion}
-        />
-      </CardContent>
-    </Card>
+          <p className="text-sm break-words whitespace-pre-line empty:hidden">
+            {perfil.bio}
+          </p>
+          <ul
+            aria-label="Intereses"
+            className="flex flex-wrap gap-2 empty:hidden"
+          >
+            {perfil.intereses.map((interes) => (
+              <li
+                key={interes}
+                className="rounded-full bg-accent px-3 py-1 text-sm text-accent-foreground"
+              >
+                {interes}
+              </li>
+            ))}
+          </ul>
+          <BotonesConexion
+            usuarioId={perfil.id}
+            relacion={perfil.relacion_conexion}
+          />
+        </CardContent>
+      </Card>
+      <ListaPublicaciones
+        ruta={`/usuarios/${perfil.id}/publicaciones`}
+        vacio="Todavía no ha publicado nada."
+      />
+    </div>
   );
 }

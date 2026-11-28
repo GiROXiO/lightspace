@@ -25,9 +25,12 @@ function Marca() {
 export function Disposicion() {
   const { cerrarSesion } = useSesion();
 
-  const ancho = useLocation().pathname.startsWith("/cursos")
+  const { pathname } = useLocation();
+  const ancho = pathname.startsWith("/cursos")
     ? "max-w-6xl"
-    : "max-w-2xl";
+    : pathname === "/"
+      ? "max-w-5xl"
+      : "max-w-2xl";
 
   return (
     <div className="min-h-screen md:pl-60">

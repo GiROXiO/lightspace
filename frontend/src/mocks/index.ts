@@ -5,6 +5,7 @@ import { despachar } from "./servidor";
 import "./cuenta";
 import "./cursos";
 import "./conexiones";
+import "./publicaciones";
 
 const RETARDO_MS = 250;
 

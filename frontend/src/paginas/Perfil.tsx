@@ -17,6 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { useSesion } from "@/sesion/contexto";
 import { useConexiones } from "@/lib/conexiones";
+import { ListaPublicaciones } from "@/components/ListaPublicaciones";
 
 const mesYAnio = new Intl.DateTimeFormat("es-CO", {
   month: "long",
@@ -107,6 +108,12 @@ export function Perfil() {
           </dl>
         </CardContent>
       </Card>
+
+      <h2 className="pt-2 text-lg">Mis publicaciones</h2>
+      <ListaPublicaciones
+        ruta={`/usuarios/${usuario.id}/publicaciones`}
+        vacio="Todavía no has publicado nada."
+      />
 
       <div className="text-center">
         <AlertDialog>

@@ -67,6 +67,11 @@ export function useAccionConexion(usuarioId: string) {
       // Sirve para rechazar, cancelar o eliminar
       return api<unknown>("DELETE", `/conexiones/${usuarioId}`);
     },
-    onSettled: () => cliente.invalidateQueries({ queryKey: ["social"] }),
+
+    onSettled: () =>
+      Promise.all([
+        cliente.invalidateQueries({ queryKey: ["social"] }),
+        cliente.invalidateQueries({ queryKey: ["publicaciones"] }),
+      ]),
   });
 }
