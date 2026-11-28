@@ -1,14 +1,29 @@
 import { Navigate, Route, Routes } from "react-router";
-import { Inicio } from "@/paginas/Inicio";
+import { Disposicion } from "@/components/Disposicion";
+import { EditarPerfil } from "@/paginas/EditarPerfil";
 import { Login } from "@/paginas/Login";
+import { Perfil } from "@/paginas/Perfil";
+import { Proximamente } from "@/paginas/Proximamente";
+import { Registro } from "@/paginas/Registro";
 import { RutaProtegida } from "@/sesion/RutaProtegida";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/registro" element={<Registro />} />
       <Route element={<RutaProtegida />}>
-        <Route path="/" element={<Inicio />} />
+        <Route element={<Disposicion />}>
+          <Route path="/" element={<Proximamente titulo="Inicio" />} />
+          <Route path="/buscar" element={<Proximamente titulo="Buscar" />} />
+          <Route path="/cursos" element={<Proximamente titulo="Cursos" />} />
+          <Route
+            path="/notificaciones"
+            element={<Proximamente titulo="Notificaciones" />}
+          />
+          <Route path="/perfil" element={<Perfil />} />
+          <Route path="/perfil/editar" element={<EditarPerfil />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

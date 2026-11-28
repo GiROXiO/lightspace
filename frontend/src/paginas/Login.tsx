@@ -1,33 +1,94 @@
-// Pantalla provisional: el bloque 4 la reemplaza.
-import { useState } from "react";
-import { Navigate } from "react-router";
+import { useState, type SubmitEvent } from "react";
+import { Link, Navigate, useLocation } from "react-router";
+import { Campo } from "@/components/Campo";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { USAR_MOCKS } from "@/lib/api";
 import { useSesion } from "@/sesion/contexto";
+import { PantallaAcceso } from "./PantallaAcceso";
 
 export function Login() {
   const { autenticado, iniciarSesion } = useSesion();
+  const ubicacion = useLocation();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [enviando, setEnviando] = useState(false);
 
-  if (autenticado) return <Navigate to="/" replace />;
+  // Si venía de una pantalla protegida, vuelve a ella
+  const desde = (ubicacion.state as { desde?: string } | null)?.desde ?? "/";
+  if (autenticado) return <Navigate to={desde} replace />;
 
-  const entrar = () =>
-    iniciarSesion(
-      "demo.sistemas@lightspace.example.com",
-      "Lightspace123!",
-    ).catch((e: Error) => setError(e.message));
+  const entrar = async (evento: SubmitEvent) => {
+    evento.preventDefault();
+    setError("");
+    setEnviando(true);
+    try {
+      await iniciarSesion(email.trim(), password);
+    } catch (e) {
+      setError((e as Error).message);
+      setEnviando(false);
+    }
+  };
+
+  const usarDemo = () => {
+    setEmail("demo.sistemas@lightspace.example.com");
+    setPassword("Lightspace123!");
+  };
 
   return (
-    <main className="grid min-h-screen place-items-center p-4">
-      <Card className="w-full max-w-sm text-center">
-        <CardContent className="space-y-4">
-          <h1 className="text-3xl text-primary">Lightspace</h1>
-          <Button className="w-full" onClick={entrar}>
-            Entrar con la cuenta demo
+    <PantallaAcceso titulo="Iniciar sesión">
+      <form onSubmit={entrar} className="space-y-4">
+        <Campo etiqueta="Correo" id="email">
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            className="h-10"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </Campo>
+        <Campo etiqueta="Contraseña" id="password">
+          <Input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            className="h-10"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </Campo>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <Button type="submit" className="h-10 w-full" disabled={enviando}>
+          {enviando ? "Entrando..." : "Entrar"}
+        </Button>
+        {USAR_MOCKS && (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 w-full"
+            onClick={usarDemo}
+          >
+            Rellenar con la cuenta demo
           </Button>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-        </CardContent>
-      </Card>
-    </main>
+        )}
+      </form>
+      <p className="text-center text-sm">
+        ¿No tienes cuenta?{" "}
+        <Link
+          to="/registro"
+          className="font-semibold text-primary hover:underline"
+        >
+          Regístrate
+        </Link>
+      </p>
+    </PantallaAcceso>
   );
 }
