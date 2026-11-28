@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAccionCurso, useCurso } from "@/lib/cursos";
 import type { CursoDetalle } from "@/types/api";
+import { Muro } from "@/components/Muro";
 
 function Acciones({ curso }: { curso: CursoDetalle }) {
   const accion = useAccionCurso(curso.id);
@@ -146,14 +147,7 @@ export function Curso() {
               </p>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="py-6 text-center">
-              <h2 className="text-lg">Muro del curso</h2>
-              <p className="text-sm text-muted-foreground">
-                Todavía está en construcción.
-              </p>
-            </CardContent>
-          </Card>
+          <Muro curso={curso} />
         </div>
       )}
     </div>

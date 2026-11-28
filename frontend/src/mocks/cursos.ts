@@ -310,3 +310,17 @@ ruta("POST", "/cursos/:id/estrella", ({ partes, usuarioId }) =>
 ruta("DELETE", "/cursos/:id/estrella", ({ partes, usuarioId }) =>
   marcarEstrella(partes.id, usuarioId!, false),
 );
+
+// Lo que necesita el muro
+export const inscrito = (uid: string, id: string) =>
+  estadoDe(uid).inscritos.includes(id);
+export const sigue = (uid: string, id: string) =>
+  estadoDe(uid).sigue.includes(id);
+export function refCurso(id: string) {
+  const c = buscar(id)!;
+  return { id: c.id, codigo: c.codigo, nombre: c.nombre };
+}
+
+// Lo que necesitan las recomendaciones
+export const catalogoPara = (uid: string) =>
+  cursos.map((c) => ({ ...aItem(c, uid), estrellas: totalEstrellas(c) }));

@@ -1,13 +1,17 @@
 import { Navigate, Route, Routes } from "react-router";
 import { Disposicion } from "@/components/Disposicion";
-import { EditarPerfil } from "@/paginas/EditarPerfil";
-import { Login } from "@/paginas/Login";
-import { Perfil } from "@/paginas/Perfil";
-import { Proximamente } from "@/paginas/Proximamente";
-import { Registro } from "@/paginas/Registro";
-import { RutaProtegida } from "@/sesion/RutaProtegida";
+import { Buscar } from "@/paginas/Buscar";
 import { Curso } from "@/paginas/Curso";
 import { Cursos } from "@/paginas/Cursos";
+import { EditarPerfil } from "@/paginas/EditarPerfil";
+import { Inicio } from "@/paginas/Inicio";
+import { Login } from "@/paginas/Login";
+import { Notificaciones } from "@/paginas/Notificaciones";
+import { Perfil } from "@/paginas/Perfil";
+import { PerfilPublico } from "@/paginas/PerfilPublico";
+import { Registro } from "@/paginas/Registro";
+import { VerPublicacion } from "@/paginas/VerPublicacion";
+import { RutaProtegida } from "@/sesion/RutaProtegida";
 
 export default function App() {
   return (
@@ -16,14 +20,13 @@ export default function App() {
       <Route path="/registro" element={<Registro />} />
       <Route element={<RutaProtegida />}>
         <Route element={<Disposicion />}>
-          <Route path="/" element={<Proximamente titulo="Inicio" />} />
-          <Route path="/buscar" element={<Proximamente titulo="Buscar" />} />
+          <Route path="/" element={<Inicio />} />
+          <Route path="/publicaciones/:id" element={<VerPublicacion />} />
+          <Route path="/buscar" element={<Buscar />} />
+          <Route path="/usuarios/:id" element={<PerfilPublico />} />
           <Route path="/cursos" element={<Cursos />} />
           <Route path="/cursos/:id" element={<Curso />} />
-          <Route
-            path="/notificaciones"
-            element={<Proximamente titulo="Notificaciones" />}
-          />
+          <Route path="/notificaciones" element={<Notificaciones />} />
           <Route path="/perfil" element={<Perfil />} />
           <Route path="/perfil/editar" element={<EditarPerfil />} />
         </Route>

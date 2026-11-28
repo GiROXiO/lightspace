@@ -1,13 +1,14 @@
 // Explorar el catálogo y ver mis cursos. Los filtros viven en la dirección,
 // así que se conservan al volver desde el detalle.
-import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
+import { CursosRecomendados } from "@/components/Recomendaciones";
 import { CLASE_SELECT } from "@/components/SelectorSemestre";
 import { TarjetaCurso } from "@/components/TarjetaCurso";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useProgramas } from "@/lib/catalogos";
 import { useCursos, useMisCursos, type FiltrosCursos } from "@/lib/cursos";
+import { useRetrasado } from "@/lib/useRetrasado";
 import type { CursoItem } from "@/types/api";
 
 const REJILLA = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
@@ -25,22 +26,12 @@ function Lista({ cursos }: { cursos: CursoItem[] }) {
   );
 }
 
-// Devuelve el valor cuando deja de cambiar, para no buscar en cada letra
-function useRetrasado(valor: string, ms: number) {
-  const [retrasado, setRetrasado] = useState(valor);
-  useEffect(() => {
-    const espera = setTimeout(() => setRetrasado(valor), ms);
-    return () => clearTimeout(espera);
-  }, [valor, ms]);
-  return retrasado;
-}
-
 function Explorar() {
   const [params, setParams] = useSearchParams();
   const programas = useProgramas();
   const texto = params.get("q") ?? "";
   const filtros: FiltrosCursos = {
-    q: useRetrasado(texto.trim(), 300),
+    q: useRetrasado(texto.trim()),
     programa: params.get("programa") ?? "",
     semestre: params.get("semestre") ?? "",
   };
@@ -131,24 +122,27 @@ function MisCursos() {
 
 export function Cursos() {
   const [params, setParams] = useSearchParams();
-  const mios = params.get("vista") === "mios";
+  const vista = params.get("vista") ?? "";
   const pestanas = [
-    { texto: "Explorar", activa: !mios, destino: "" },
-    { texto: "Mis cursos", activa: mios, destino: "vista=mios" },
+    { texto: "Explorar", valor: "" },
+    { texto: "Mis cursos", valor: "mios" },
+    { texto: "Recomendados", valor: "recomendados" },
   ];
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl">Cursos</h1>
       <div className="flex gap-6 border-b">
-        {pestanas.map(({ texto, activa, destino }) => (
+        {pestanas.map(({ texto, valor }) => (
           <button
             key={texto}
             type="button"
-            aria-pressed={activa}
-            onClick={() => setParams(destino, { replace: true })}
+            aria-pressed={vista === valor}
+            onClick={() =>
+              setParams(valor ? { vista: valor } : {}, { replace: true })
+            }
             className={`border-b-2 px-1 py-2 text-sm font-semibold ${
-              activa
+              vista === valor
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground"
             }`}
@@ -157,7 +151,13 @@ export function Cursos() {
           </button>
         ))}
       </div>
-      {mios ? <MisCursos /> : <Explorar />}
+      {vista === "mios" ? (
+        <MisCursos />
+      ) : vista === "recomendados" ? (
+        <CursosRecomendados />
+      ) : (
+        <Explorar />
+      )}
     </div>
   );
 }
