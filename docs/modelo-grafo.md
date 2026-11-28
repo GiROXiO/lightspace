@@ -37,7 +37,7 @@ graph LR
 | `Publicacion`  | `id`, `tipo`, `contenido`, `fecha`, `imagenes` y, según el tipo, `enlace`, `actividad`, `cupos`, `estado`                             | `tipo`: `GENERAL`, `MATERIAL`, `PREGUNTA`, `BUSCA_GRUPO`. `estado` (solo `BUSCA_GRUPO`): `ABIERTA` o `CERRADA`. `imagenes`: lista de hasta 4 direcciones                                                                                                          |
 | `Comentario`   | `id`, `contenido`, `fecha`, `imagen_url`                                                                                              | `imagen_url` es opcional                                                                                                                                                                                                                                          |
 | `Notificacion` | `id`, `tipo`, `mensaje`, `leida`, `fecha`                                                                                             | `tipo`: `SOLICITUD_CONEXION`, `CONEXION_ACEPTADA`, `COMENTARIO`, `LIKE`, `RESPUESTA_GRUPO`                                                                                                                                                                        |
-|  |
+|                |
 
 ## Relaciones
 
@@ -99,18 +99,18 @@ Convenciones: todo el código vive bajo el espacio de nombres `lightspace`. El r
 | `excluir_sigue`        | Se crea un `INSCRITO_EN`                                 | Elimina el `SIGUE` del mismo usuario y curso                                                     | 2    |
 | `cerrar_grupo`         | Se crea un `SE_UNIO` hacia una publicación `BUSCA_GRUPO` | Si el número de `SE_UNIO` iguala `cupos`, pone `estado = "CERRADA"`                              | 3    |
 | `notificar_comentario` | Se crea un `COMENTA_EN`                                  | Crea la `Notificacion` tipo `COMENTARIO` para el autor de la publicación, salvo que sea el mismo | 3    |
-| `notificar_like`       | Se crea un `LE_GUSTA`                                    | Crea la `Notificacion` tipo `LIKE`, salvo autolike                                               | 3    |
+| `notificar_like`       | Se crea un `LE_GUSTA`                                    | Crea la `Notificacion` tipo `LIKE`, salvo autolike o si ya hay una sin leer de la misma persona  | 3    |
 | `notificar_union`      | Se crea un `SE_UNIO`                                     | Crea la `Notificacion` tipo `RESPUESTA_GRUPO` para el autor del grupo                            | 3    |
 | `notificar_conexion`   | Se crea o cambia de estado un `CONECTA_CON`              | `SOLICITUD_CONEXION` al crearse `PENDIENTE`; `CONEXION_ACEPTADA` al pasar a `ACEPTADA`           | 3    |
 
 ### Procedimientos
 
-| Nombre                           | Entrada                 | Hace                                                                                                                                          | Fase |
-| -------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
-| `lightspace.inscribir`           | `uid`, `curso_id`       | Verifica `MATRICULADO_EN` del periodo vigente, crea `INSCRITO_EN` con `periodo` y `nrc` de la matrícula y elimina `SIGUE`, en una transacción | 2    |
-| `lightspace.recomendar_personas` | `uid`, `limite`         | Devuelve personas ordenadas por `lightspace.puntaje_persona`                                                                                  | 2    |
-| `lightspace.unirse_grupo`        | `uid`, `publicacion_id` | Verifica que el usuario esté inscrito y que queden cupos, y crea `SE_UNIO` de forma atómica (evita superar `cupos`)                           | 3    |
-| `lightspace.recomendar_cursos`   | `uid`, `limite`         | Filtra por carrera del usuario (`DE_PROGRAMA`) y ordena por `lightspace.puntaje_curso`                                                        | 3    |
+| Nombre                           | Entrada                      | Hace                                                                                                                                                                                                                                  | Fase |
+| -------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| `lightspace.inscribir`           | `uid`, `curso_id`, `periodo` | Verifica `MATRICULADO_EN` del periodo y crea `INSCRITO_EN` con `periodo` y `nrc` de la matrícula; el trigger `excluir_sigue` quita `SIGUE`. Devuelve `relacion`, `periodo`, `nrc`; sin filas si no está matriculado                   | 2    |
+| `lightspace.recomendar_personas` | `uid`, `limite`              | Devuelve personas ordenadas por `lightspace.puntaje_persona`                                                                                                                                                                          | 2    |
+| `lightspace.unirse_grupo`        | `uid`, `publicacion_id`      | Verifica que el usuario esté inscrito y que queden cupos, y crea `SE_UNIO` de forma atómica (evita superar `cupos`). Devuelve `resultado` (`OK`, `SIN_PERMISO`, `CERRADO`), `estado`, `total_unidos`, `unido`; sin filas si no existe | 3    |
+| `lightspace.recomendar_cursos`   | `uid`, `limite`              | Filtra por carrera del usuario (`DE_PROGRAMA`) y ordena por `lightspace.puntaje_curso`                                                                                                                                                | 3    |
 
 ### Funciones
 
@@ -119,25 +119,32 @@ Convenciones: todo el código vive bajo el espacio de nombres `lightspace`. El r
 | `lightspace.puntaje_persona` | `uid_a`, `uid_b`  | Número: conexiones en común, cursos compartidos, misma carrera e intereses en común, con pesos |
 | `lightspace.puntaje_curso`   | `uid`, `curso_id` | Número: intereses en común, usuarios parecidos que lo siguen y estrellas                       |
 
-Los pesos de las fórmulas se fijan en la fase 2 y se documentan aquí.
+Los pesos de las fórmulas se fijan en la fase 2 y se documentan aquí:
+
+- **Personas:** 0.35 intereses en común + 0.25 misma carrera + 0.20 cursos compartidos + 0.20 conexiones en común.
+- **Cursos:** 0.45 intereses en común + 0.35 usuarios parecidos que lo siguen + 0.20 estrellas.
+
+Intereses y cursos se miden como proporción de lo compartido sobre el total; conexiones, seguidores y estrellas se suavizan con `n / (n + k)` (k = 5, 5 y 10).
 
 ### Vistas
 
 Neo4j no tiene vistas como SQL. Aquí una vista es un procedimiento de **solo lectura** con una consulta fija y parámetros, que se llama con `CALL custom.lightspace.vista_xxx(...)`. No guarda datos: siempre lee el estado actual del grafo.
 
-| Nombre                            | Entrada              | Devuelve                                               | Servicio                         | Fase |
-| --------------------------------- | -------------------- | ------------------------------------------------------ | -------------------------------- | ---- |
-| `vista_perfil`                    | `uid`                | Usuario con programa e intereses                       | Usuarios                         | 2    |
-| `vista_mis_cursos`                | `uid`                | Cursos del usuario con matrícula, relación y NRC       | Cursos                           | 2    |
-| `vista_feed`                      | `uid`, `pagina`      | Publicaciones de conexiones aceptadas, por fecha       | Usuarios                         | 2    |
-| `vista_muro_curso`                | `curso_id`, `pagina` | Publicaciones del curso con autor, likes y comentarios | Cursos                           | 3    |
-| `vista_notificaciones_pendientes` | `uid`                | Notificaciones no leídas del usuario                   | Recomendaciones y notificaciones | 3    |
+| Nombre                            | Entrada                                       | Devuelve                                               | Servicio                         | Fase |
+| --------------------------------- | --------------------------------------------- | ------------------------------------------------------ | -------------------------------- | ---- |
+| `vista_perfil`                    | `uid`                                         | Usuario con programa e intereses                       | Usuarios                         | 2    |
+| `vista_mis_cursos`                | `uid`, `periodo`                              | Cursos del usuario con matrícula, relación y NRC       | Cursos                           | 2    |
+| `vista_feed`                      | `uid`, `pagina`, `tamano`                     | Publicaciones de conexiones aceptadas, por fecha       | Usuarios                         | 2    |
+| `vista_muro_curso`                | `curso_id`, `uid`, `tipo`, `pagina`, `tamano` | Publicaciones del curso con autor, likes y comentarios | Cursos                           | 3    |
+| `vista_notificaciones_pendientes` | `uid`                                         | Notificaciones no leídas del usuario                   | Recomendaciones y notificaciones | 3    |
+
+Las vistas de publicaciones, cursos y notificaciones devuelven un mapa con la misma forma que el contrato. Las fechas siguen siendo `datetime` y hay que convertirlas. El total para la paginación lo cuenta el backend.
 
 ### Reglas de uso
 
 - Los servicios del backend llaman a estos objetos con `CALL custom.lightspace.xxx(...)`; no repiten la lógica en Python.
-- El seed carga los datos con `MERGE` directo, sin pasar por los triggers (se desactivan durante la carga y se reactivan al terminar), para no generar notificaciones duplicadas. Por confirmar al implementarlo.
-- Los scripts de estos objetos viven en `database/` y se aplican al arrancar, igual que `schema.cypher`.
+- El seed carga los datos con `MERGE` directo, sin pasar por los triggers (se desactivan durante la carga y se reactivan al terminar), para no generar notificaciones duplicadas.
+- Los scripts de estos objetos viven en `database/logica/` y los instala el servicio de usuarios al arrancar, igual que `schema.cypher`. Si se cambia un script, hay que reiniciar ese servicio.
 
 ## Pendiente (fases posteriores)
 

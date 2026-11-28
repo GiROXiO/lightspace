@@ -17,6 +17,7 @@ class Settings(BaseSettings):
   jwt_algoritmo: str = "HS256"
   jwt_horas: int = 24
   schema_path: Path = RAIZ / "database" / "schema.cypher"
+  logica_path: Path = RAIZ / "database" / "logica"
   periodo_actual: str = "202630"
 
 settings = Settings()
