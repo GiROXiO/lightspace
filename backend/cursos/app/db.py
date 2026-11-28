@@ -1,19 +1,29 @@
+import time
 from collections.abc import Iterator
 
 from neo4j import Driver, GraphDatabase, Session
+from neo4j.exceptions import ServiceUnavailable
 
 from .config import settings
 
 _driver: Driver | None = None
 
 
-def init_driver() -> Driver:
+def init_driver(intentos: int = 60) -> Driver:
   global _driver
   _driver = GraphDatabase.driver(
     settings.neo4j_uri,
     auth=(settings.neo4j_user, settings.neo4j_password),
   )
-  _driver.verify_connectivity()
+  # Tras reiniciar el equipo, Neo4j puede tardar más que el servicio en arrancar
+  for intento in range(1, intentos + 1):
+    try:
+      _driver.verify_connectivity()
+      break
+    except ServiceUnavailable:
+      if intento == intentos:
+        raise
+      time.sleep(2)
   return _driver
 
 
