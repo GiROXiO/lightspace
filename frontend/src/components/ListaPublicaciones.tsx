@@ -5,10 +5,13 @@ import { useListaPublicaciones } from "@/lib/publicaciones";
 interface Props {
   ruta: string;
   vacio: string;
+  consulta?: Record<string, string>;
+  enCurso?: boolean; // en el muro no hace falta repetir el curso
 }
 
-export function ListaPublicaciones({ ruta, vacio }: Props) {
-  const lista = useListaPublicaciones(ruta);
+export function ListaPublicaciones(props: Props) {
+  const { ruta, vacio, consulta, enCurso } = props;
+  const lista = useListaPublicaciones(ruta, consulta);
   const items = lista.data?.pages.flatMap((p) => p.items) ?? [];
   const aviso = lista.isPending
     ? "Cargando publicaciones..."
@@ -22,7 +25,11 @@ export function ListaPublicaciones({ ruta, vacio }: Props) {
         </p>
       )}
       {items.map((publicacion) => (
-        <TarjetaPublicacion key={publicacion.id} publicacion={publicacion} />
+        <TarjetaPublicacion
+          key={publicacion.id}
+          publicacion={publicacion}
+          enCurso={enCurso}
+        />
       ))}
       {lista.hasNextPage && (
         <Button

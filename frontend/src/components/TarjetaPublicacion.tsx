@@ -12,12 +12,21 @@ import { hace } from "@/lib/fecha";
 import { useCambioPublicacion } from "@/lib/publicaciones";
 import { useSesion } from "@/sesion/contexto";
 import type { Publicacion } from "@/types/api";
+import { Grupo } from "@/components/Grupo";
 
 interface Props {
   publicacion: Publicacion;
   conComentarios?: boolean; // abiertos desde el principio
   alBorrar?: () => void;
+  enCurso?: boolean;
 }
+
+const ETIQUETAS = {
+  GENERAL: "",
+  MATERIAL: "Material",
+  PREGUNTA: "Pregunta",
+  BUSCA_GRUPO: "Busco grupo",
+};
 
 export function TarjetaPublicacion(props: Props) {
   const { publicacion, alBorrar } = props;
@@ -49,7 +58,13 @@ export function TarjetaPublicacion(props: Props) {
               <Link to={`/publicaciones/${publicacion.id}`}>
                 {hace(publicacion.fecha)}
               </Link>
-              {curso && (
+              {publicacion.tipo !== "GENERAL" && (
+                <span className="font-semibold text-primary">
+                  {" · "}
+                  {ETIQUETAS[publicacion.tipo]}
+                </span>
+              )}
+              {curso && !props.enCurso && (
                 <>
                   {" · "}
                   <Link to={`/cursos/${curso.id}`}>{curso.nombre}</Link>
@@ -94,7 +109,10 @@ export function TarjetaPublicacion(props: Props) {
             <EditorTexto
               inicial={publicacion.contenido}
               maximo={2000}
-              puedeQuedarVacio={publicacion.imagenes.length > 0}
+              puedeQuedarVacio={
+                publicacion.tipo === "GENERAL" &&
+                publicacion.imagenes.length > 0
+              }
               guardando={cambio.isPending}
               cancelar={() => setEditando(false)}
               guardar={(contenido) =>
@@ -116,6 +134,26 @@ export function TarjetaPublicacion(props: Props) {
         )}
 
         <Carrusel imagenes={publicacion.imagenes} />
+
+        {/* Solo enlaces web: el texto lo escribe otra persona */}
+        {publicacion.enlace && /^https?:\/\//i.test(publicacion.enlace) && (
+          <CardContent>
+            <a
+              href={publicacion.enlace}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm font-semibold break-all text-primary hover:underline"
+            >
+              {publicacion.enlace}
+            </a>
+          </CardContent>
+        )}
+
+        {publicacion.tipo === "BUSCA_GRUPO" && (
+          <CardContent>
+            <Grupo publicacion={publicacion} />
+          </CardContent>
+        )}
 
         <CardContent className="space-y-3">
           <div className="flex gap-2">

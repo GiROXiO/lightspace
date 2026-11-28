@@ -6,6 +6,7 @@ import "./cuenta";
 import "./cursos";
 import "./conexiones";
 import "./publicaciones";
+import "./muro";
 
 const RETARDO_MS = 250;
 

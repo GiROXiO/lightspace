@@ -1,10 +1,24 @@
 // Publicaciones generales, "me gusta" y comentarios simulados.
-import type { Comentario, Publicacion } from "@/types/api";
+import type {
+  Comentario,
+  EstadoGrupo,
+  Publicacion,
+  TipoPublicacion,
+} from "@/types/api";
+import { inscrito, refCurso } from "./cursos";
 import { relacion, resumen } from "./conexiones";
 import { usuarios } from "./datos";
 import { fallo, ok, paginar, ruta, sinContenido } from "./servidor";
 
-interface Post {
+export interface Post {
+  // Solo las del muro de un curso
+  curso_id?: string;
+  tipo?: TipoPublicacion;
+  enlace?: string | null;
+  actividad?: string;
+  cupos?: number;
+  estado?: EstadoGrupo;
+  unidos?: string[];
   id: string;
   autor: string;
   contenido: string;
@@ -34,9 +48,11 @@ const post = (
   imagenes: string[] = [],
 ): Post => ({ id, autor, contenido, imagenes, likes, fecha: hace(horas) });
 
-const datos: { posts: Post[]; notas: Nota[] } = JSON.parse(
-  localStorage.getItem(CLAVE) ?? "null",
-) ?? {
+export const datos: {
+  posts: Post[];
+  notas: Nota[];
+  muroSembrado?: boolean;
+} = JSON.parse(localStorage.getItem(CLAVE) ?? "null") ?? {
   posts: [
     post(
       "pub-1",
@@ -67,30 +83,30 @@ const datos: { posts: Post[]; notas: Nota[] } = JSON.parse(
     },
   ],
 };
-const guardar = () => localStorage.setItem(CLAVE, JSON.stringify(datos));
+export const guardar = () => localStorage.setItem(CLAVE, JSON.stringify(datos));
 
 const buscarUsuario = (id: string) => usuarios.find((u) => u.id === id);
-const buscarPost = (id: string) => datos.posts.find((p) => p.id === id);
+export const buscarPost = (id: string) => datos.posts.find((p) => p.id === id);
 const noExiste = () => fallo(404, "La publicación no existe");
 
-function aPublicacion(p: Post, yo: string): Publicacion {
+export function aPublicacion(p: Post, yo: string): Publicacion {
   return {
     id: p.id,
-    tipo: "GENERAL",
+    tipo: p.tipo ?? "GENERAL",
     contenido: p.contenido,
     imagenes: p.imagenes,
     fecha: p.fecha,
-    enlace: null,
-    actividad: null,
-    cupos: null,
-    estado: null,
+    enlace: p.enlace ?? null,
+    actividad: p.actividad ?? null,
+    cupos: p.cupos ?? null,
+    estado: p.estado ?? null,
     autor: resumen(buscarUsuario(p.autor)!),
-    curso: null,
+    curso: p.curso_id ? refCurso(p.curso_id) : null,
     total_likes: p.likes.length,
     total_comentarios: datos.notas.filter((n) => n.publicacion === p.id).length,
     me_gusta: p.likes.includes(yo),
-    total_unidos: null,
-    unido: null,
+    total_unidos: p.unidos?.length ?? null,
+    unido: p.unidos?.includes(yo) ?? null,
   };
 }
 
@@ -105,7 +121,7 @@ const aComentario = (n: Nota): Comentario => ({
 // De la más reciente a la más antigua, sin las de cuentas borradas
 function listar(yo: string, filtro: (p: Post) => boolean) {
   return datos.posts
-    .filter((p) => buscarUsuario(p.autor) && filtro(p))
+    .filter((p) => !p.curso_id && buscarUsuario(p.autor) && filtro(p))
     .sort((a, b) => b.fecha.localeCompare(a.fecha))
     .map((p) => aPublicacion(p, yo));
 }
@@ -201,7 +217,15 @@ ruta("GET", "/publicaciones/:id/comentarios", ({ partes, consulta }) => {
 
 ruta("POST", "/publicaciones/:id/comentarios", (peticion) => {
   const { partes, cuerpo, usuarioId } = peticion;
-  if (!buscarPost(partes.id)) return noExiste();
+  const p = buscarPost(partes.id);
+  if (!p) return noExiste();
+  // En "busco grupo" solo comentan los inscritos y el autor
+  if (
+    p.tipo === "BUSCA_GRUPO" &&
+    p.autor !== usuarioId &&
+    !inscrito(usuarioId!, p.curso_id!)
+  )
+    return fallo(403, "Solo los inscritos en el curso pueden comentar");
   const { contenido, imagen_url = null } = cuerpo as {
     contenido: string;
     imagen_url?: string | null;

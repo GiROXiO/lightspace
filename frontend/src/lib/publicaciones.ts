@@ -11,13 +11,16 @@ import { api, type Metodo } from "./api";
 const siguiente = (p: Paginado<unknown>) =>
   p.pagina * p.tamano < p.total ? p.pagina + 1 : undefined;
 
-// `ruta` es el feed (/publicaciones) o las de una persona
-export const useListaPublicaciones = (ruta: string) =>
+// `ruta` es el feed, las de una persona o el muro de un curso
+export const useListaPublicaciones = (
+  ruta: string,
+  consulta: Record<string, string> = {},
+) =>
   useInfiniteQuery({
-    queryKey: ["publicaciones", "lista", ruta],
+    queryKey: ["publicaciones", "lista", ruta, consulta],
     queryFn: ({ pageParam }) =>
       api<Paginado<Publicacion>>("GET", ruta, {
-        consulta: { pagina: pageParam },
+        consulta: { ...consulta, pagina: pageParam },
       }),
     initialPageParam: 1,
     getNextPageParam: siguiente,
