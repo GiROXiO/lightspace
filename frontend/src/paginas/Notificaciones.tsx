@@ -1,4 +1,3 @@
-import { X } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Avatar } from "@/components/Avatar";
@@ -66,7 +65,7 @@ export function Notificaciones() {
           )}
           <ul className="divide-y">
             {items.map((n) => (
-              <li key={n.id} className="flex items-center gap-2 py-2">
+              <li key={n.id} className="flex py-2">
                 <button
                   type="button"
                   onClick={() => abrir(n)}
@@ -91,16 +90,6 @@ export function Notificaciones() {
                     </span>
                   </span>
                 </button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Eliminar notificación"
-                  onClick={() =>
-                    cambio.mutate({ metodo: "DELETE", ruta: `/${n.id}` })
-                  }
-                >
-                  <X />
-                </Button>
               </li>
             ))}
           </ul>

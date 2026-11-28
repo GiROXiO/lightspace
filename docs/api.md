@@ -199,7 +199,7 @@ Cada módulo define `router = APIRouter(prefix="/api/...", tags=["..."])` y se r
 | `GET`    | `/api/notificaciones`                          | Mis notificaciones                                  | Sí     | Carrizosa   |
 | `PATCH`  | `/api/notificaciones/{id}/leida`               | Marca una como leída                                | Sí     | Carrizosa   |
 | `POST`   | `/api/notificaciones/leidas`                   | Marca todas como leídas                             | Sí     | Carrizosa   |
-| `DELETE` | `/api/notificaciones/{id}`                     | Elimina una                                         | Sí     | Carrizosa   |
+| `DELETE` | `/api/notificaciones/{id}`                     | No se implementa: las notificaciones no se borran   | Sí     | Carrizosa   |
 | `POST`   | `/api/archivos`                                | Sube una imagen                                     | Sí     | Castro      |
 | `GET`    | `/api/archivos/{nombre}`                       | Devuelve una imagen                                 | No     | Castro      |
 | `GET`    | `/api/archivos/portadas/{nombre}`              | Devuelve una portada de curso                       | No     | Castro      |
@@ -817,7 +817,7 @@ Las **crean los triggers** de la base; no hay ruta ni código del backend que la
 
 - `PATCH /api/notificaciones/{id}/leida`: `200` `{ "id": "uuid", "leida": true }`. `404` si no existe o no es mía.
 - `POST /api/notificaciones/leidas`: `{ "total_marcadas": 3 }`.
-- `DELETE /api/notificaciones/{id}`: `204`. `404` si no existe o no es mía.
+- `DELETE /api/notificaciones/{id}`: **no se implementa**. El usuario no puede borrar notificaciones, solo marcarlas como leídas. Se eliminan solas al borrar la publicación a la que se refieren o la cuenta.
 
 ## Imágenes
 

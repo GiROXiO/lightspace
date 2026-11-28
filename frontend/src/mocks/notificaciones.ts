@@ -1,7 +1,7 @@
 // Notificaciones de ejemplo. En el backend las crean los triggers.
 import type { Notificacion, TipoNotificacion } from "@/types/api";
 import { usuarios } from "./datos";
-import { fallo, ok, paginar, ruta, sinContenido } from "./servidor";
+import { fallo, ok, paginar, ruta } from "./servidor";
 
 interface Aviso {
   id: string;
@@ -34,7 +34,7 @@ const aviso = (
   fecha: new Date(Date.now() - horas * 3_600_000).toISOString(),
 });
 
-let avisos: Aviso[] = JSON.parse(localStorage.getItem(CLAVE) ?? "null") ?? [
+const avisos: Aviso[] = JSON.parse(localStorage.getItem(CLAVE) ?? "null") ?? [
   aviso(
     "n-1",
     "u-camila",
@@ -122,11 +122,4 @@ ruta("POST", "/notificaciones/leidas", ({ usuarioId }) => {
   for (const a of pendientes) a.leida = true;
   guardar();
   return ok({ total_marcadas: pendientes.length });
-});
-
-ruta("DELETE", "/notificaciones/:id", ({ partes, usuarioId }) => {
-  if (!mias(usuarioId!).some((x) => x.id === partes.id)) return noExiste();
-  avisos = avisos.filter((a) => a.id !== partes.id);
-  guardar();
-  return sinContenido();
 });
