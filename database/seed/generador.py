@@ -100,6 +100,7 @@ def generar(n_usuarios: int = 120, semilla: int = 42, password_hash: str = "HASH
             "descripcion": f"{nombre}: curso de {creditos} créditos del departamento de {departamento}.",
             "creditos": creditos, "nivel": "Pregrado", "semestre_sugerido": semestre,
             "departamento": departamento,
+            "portada_url": f"/api/archivos/portadas/{materia}.webp",
         })
         ds["curso_programa"] += [{"curso": cid, "programa": prog_id[c]} for c in claves]
         ds["curso_interes"] += [{"curso": cid, "interes": x} for x in intereses]

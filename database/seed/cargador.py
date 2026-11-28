@@ -22,7 +22,7 @@ CARGAS: list[tuple[str, str]] = [
         SET c.codigo = r.codigo, c.materia = r.materia, c.numero = r.numero,
             c.nombre = r.nombre, c.descripcion = r.descripcion, c.creditos = r.creditos,
             c.nivel = r.nivel, c.semestre_sugerido = r.semestre_sugerido,
-            c.departamento = r.departamento
+            c.departamento = r.departamento, c.portada_url = r.portada_url
     """),
     ("curso_programa", """
         UNWIND $rows AS r
