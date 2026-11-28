@@ -47,6 +47,7 @@ export function Perfil() {
               nombre={usuario.nombre}
               apellido={usuario.apellido}
               tamano="lg"
+              foto={usuario.foto_url}
             />
             <div className="min-w-0 space-y-1">
               <h1 className="text-2xl break-words">

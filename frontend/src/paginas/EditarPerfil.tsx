@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type SubmitEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { Campo } from "@/components/Campo";
+import { SelectorFoto } from "@/components/SelectorFoto";
 import { SelectorIntereses } from "@/components/SelectorIntereses";
 import { SelectorSemestre } from "@/components/SelectorSemestre";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
+import { subirImagen } from "@/lib/imagenes";
 import { useSesion } from "@/sesion/contexto";
 import type { CambiosPerfil, MiPerfil } from "@/types/api";
 
@@ -21,6 +23,11 @@ function Formulario({ usuario }: { usuario: MiPerfil }) {
   const [bio, setBio] = useState(usuario.bio);
   const [semestre, setSemestre] = useState(usuario.semestre);
   const [intereses, setIntereses] = useState(usuario.intereses);
+  const fotoActual = usuario.foto_url ?? null;
+  const [foto, setFoto] = useState(fotoActual);
+
+  // La foto se sube al elegirla, pero el perfil solo cambia al guardar
+  const subir = useMutation({ mutationFn: subirImagen, onSuccess: setFoto });
 
   const guardar = useMutation({
     mutationFn: (cambios: CambiosPerfil) =>
@@ -39,11 +46,24 @@ function Formulario({ usuario }: { usuario: MiPerfil }) {
       bio: bio.trim(),
       semestre,
       intereses,
+      ...(foto !== fotoActual && { foto_url: foto }),
     });
   };
 
   return (
     <form onSubmit={enviar} className="space-y-4">
+      <SelectorFoto
+        nombre={usuario.nombre}
+        apellido={usuario.apellido}
+        foto={foto}
+        subiendo={subir.isPending}
+        error={subir.error?.message}
+        elegir={(archivo) => subir.mutate(archivo)}
+        quitar={() => {
+          subir.reset();
+          setFoto(null);
+        }}
+      />
       <div className="grid gap-4 sm:grid-cols-2">
         <Campo etiqueta="Nombre" id="nombre">
           <Input
@@ -94,7 +114,11 @@ function Formulario({ usuario }: { usuario: MiPerfil }) {
         <Button asChild variant="outline" className="h-10">
           <Link to="/perfil">Cancelar</Link>
         </Button>
-        <Button type="submit" className="h-10" disabled={guardar.isPending}>
+        <Button
+          type="submit"
+          className="h-10"
+          disabled={guardar.isPending || subir.isPending}
+        >
           {guardar.isPending ? "Guardando..." : "Guardar cambios"}
         </Button>
       </div>

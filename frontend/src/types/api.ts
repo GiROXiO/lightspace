@@ -18,6 +18,7 @@ export interface Usuario {
   semestre: number;
   bio: string;
   fecha_registro: string;
+  foto_url: string | null;
 }
 
 export interface MiPerfil extends Usuario {
@@ -48,6 +49,7 @@ export interface CambiosPerfil {
   bio?: string;
   semestre?: number;
   intereses?: string[];
+  foto_url?: string | null;
 }
 
 export interface Paginado<T> {
@@ -69,6 +71,7 @@ export interface UsuarioResumen {
   apellido: string;
   semestre: number;
   programa: ProgramaResumen;
+  foto_url: string | null;
 }
 
 export interface PerfilPublico extends UsuarioResumen {
@@ -121,6 +124,7 @@ export interface Publicacion {
   me_gusta: boolean;
   total_unidos: number | null;
   unido: boolean | null;
+  imagenes: string[];
 }
 
 export interface Comentario {
@@ -128,6 +132,7 @@ export interface Comentario {
   contenido: string;
   fecha: string;
   autor: UsuarioResumen;
+  imagen_url: string | null;
 }
 
 export type RelacionCurso = "INSCRITO" | "SIGUE" | null;
@@ -151,6 +156,7 @@ export interface CursoItem {
   intereses: string[];
   matriculado: boolean;
   relacion: RelacionCurso;
+  portada_url: string | null;
 }
 
 export interface CursoDetalle extends Omit<CursoItem, "programas"> {
@@ -175,6 +181,7 @@ export interface PersonaRecomendada {
   intereses_comunes: string[];
   cursos_comunes: string[];
   conexiones_comunes: number;
+  foto_url: string | null;
 }
 
 export interface CursoRecomendado {
@@ -191,6 +198,7 @@ export interface CursoRecomendado {
   intereses_comunes: string[];
   seguidores_parecidos: number;
   estrellas: number;
+  portada_url: string | null;
 }
 
 export type TipoNotificacion =
@@ -206,7 +214,7 @@ export interface Notificacion {
   mensaje: string;
   leida: boolean;
   fecha: string;
-  origen: Pick<Usuario, "id" | "nombre" | "apellido">;
+  origen: Pick<Usuario, "id" | "nombre" | "apellido" | "foto_url">;
   publicacion_id: string | null;
 }
 
