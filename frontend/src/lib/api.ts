@@ -51,8 +51,11 @@ async function enviar(
     return atender(metodo, ruta, cuerpo, token.leer());
   }
 
+  // Los archivos viajan como FormData: el navegador pone el Content-Type
+  const esArchivo = cuerpo instanceof FormData;
   const cabeceras: Record<string, string> = {};
-  if (cuerpo !== undefined) cabeceras["Content-Type"] = "application/json";
+  if (cuerpo !== undefined && !esArchivo)
+    cabeceras["Content-Type"] = "application/json";
   const actual = token.leer();
   if (actual) cabeceras.Authorization = `Bearer ${actual}`;
 
@@ -61,7 +64,7 @@ async function enviar(
     respuesta = await fetch(`${URL_API}${ruta}`, {
       method: metodo,
       headers: cabeceras,
-      body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
+      body: cuerpo === undefined || esArchivo ? cuerpo : JSON.stringify(cuerpo),
     });
   } catch {
     throw new ErrorApi(0, "No hay conexión con el servidor");

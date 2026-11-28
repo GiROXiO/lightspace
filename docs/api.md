@@ -2,7 +2,7 @@
 
 Documento vivo. Responsable: Jeronimo Castro. Cualquier cambio a una ruta, entrada o respuesta se avisa al grupo y se actualiza aquí **antes** de implementarlo.
 
-Alcance: la **fase 1** (registro, login, perfil, lista de cursos y seguir o dejar de seguir) y las **fases 2 y 3** (inscripción, estrellas, conexiones, publicaciones, muro del curso, "busco grupo", notificaciones y recomendaciones), incluidas las operaciones de editar y borrar.
+Alcance: la **fase 1** (registro, login, perfil, lista de cursos y seguir o dejar de seguir) y las **fases 2 y 3** (inscripción, estrellas, conexiones, publicaciones, muro del curso, "busco grupo", notificaciones y recomendaciones), incluidas las operaciones de editar y borrar. Las imágenes se describen en la sección "Imágenes" y cambian objetos de las tres fases.
 
 ## Arquitectura de servicios
 
@@ -16,6 +16,7 @@ El backend se divide en servicios independientes (cada uno con su carpeta, su `D
 | Usuarios                         | `backend/usuarios/`        | `/api/auth`, `/api/usuarios`, `/api/programas`, `/api/intereses`. Fase 2: `/api/conexiones`, `/api/publicaciones`, `/api/busqueda` | Arrieta     | 8001           |
 | Cursos                           | `backend/cursos/`          | `/api/cursos` (incluye seguir, inscripción, estrellas, muro y grupos)                                                              | Caceres     | 8002           |
 | Recomendaciones y notificaciones | `backend/recomendaciones/` | `/api/recomendaciones`, `/api/notificaciones`                                                                                      | Carrizosa   | 8003           |
+| Archivos (imágenes)              | `backend/archivos/`        | `/api/archivos`                                                                                                                    | Castro      | 8004           |
 
 Reglas de la arquitectura:
 
@@ -141,6 +142,8 @@ Cada integrante usa el suyo en su `.env`, pero dentro de una misma máquina **lo
 | Usuarios        | `backend/usuarios/app/busqueda.py`               | `/api/busqueda`                                     | Arrieta     |
 | Recomendaciones | `backend/recomendaciones/app/recomendaciones.py` | `/api/recomendaciones`                              | Carrizosa   |
 | Recomendaciones | `backend/recomendaciones/app/notificaciones.py`  | `/api/notificaciones`                               | Carrizosa   |
+| Archivos        | `backend/archivos/app/archivos.py`               | `/api/archivos`                                     | Castro      |
+| Archivos        | `backend/archivos/app/limpieza.py`               | Tarea interna, sin rutas                            | Castro      |
 
 Cada módulo define `router = APIRouter(prefix="/api/...", tags=["..."])` y se registra en el `main.py` de su servicio con `app.include_router(...)`.
 
@@ -197,6 +200,9 @@ Cada módulo define `router = APIRouter(prefix="/api/...", tags=["..."])` y se r
 | `PATCH`  | `/api/notificaciones/{id}/leida`               | Marca una como leída                                | Sí     | Carrizosa   |
 | `POST`   | `/api/notificaciones/leidas`                   | Marca todas como leídas                             | Sí     | Carrizosa   |
 | `DELETE` | `/api/notificaciones/{id}`                     | Elimina una                                         | Sí     | Carrizosa   |
+| `POST`   | `/api/archivos`                                | Sube una imagen                                     | Sí     | Castro      |
+| `GET`    | `/api/archivos/{nombre}`                       | Devuelve una imagen                                 | No     | Castro      |
+| `GET`    | `/api/archivos/portadas/{nombre}`              | Devuelve una portada de curso                       | No     | Castro      |
 
 ---
 
@@ -571,12 +577,15 @@ DELETE s
   "nombre": "Ana",
   "apellido": "Pérez",
   "semestre": 4,
+  "foto_url": "/api/archivos/3f2b8c1d9a4e4f6b8c0d1e2f3a4b5c6d.webp",
   "programa": {
     "codigo": "SIS",
     "nombre": "Ingeniería de Sistemas y Computación"
   }
 }
 ```
+
+`foto_url` es `null` si la persona no tiene foto (ver "Imágenes").
 
 `relacion_conexion`: `"NINGUNA"`, `"ENVIADA"` (yo envié la solicitud), `"RECIBIDA"` o `"CONECTADOS"`.
 
@@ -587,6 +596,7 @@ DELETE s
   "id": "uuid",
   "tipo": "BUSCA_GRUPO",
   "contenido": "Busco grupo...",
+  "imagenes": ["/api/archivos/9a8b7c6d5e4f40312a1b0c9d8e7f6a5b.webp"],
   "fecha": "2026-11-20T15:00:00Z",
   "enlace": null,
   "actividad": "el proyecto final",
@@ -602,7 +612,7 @@ DELETE s
 }
 ```
 
-`curso` es `null` en las publicaciones `GENERAL`. `enlace` solo aplica a `MATERIAL`; `actividad`, `cupos`, `estado`, `total_unidos` y `unido` solo a `BUSCA_GRUPO` (en los demás van `null`).
+`curso` es `null` en las publicaciones `GENERAL`. `enlace` solo aplica a `MATERIAL`; `actividad`, `cupos`, `estado`, `total_unidos` y `unido` solo a `BUSCA_GRUPO` (en los demás van `null`). `imagenes` siempre es una lista, vacía si no tiene.
 
 `Comentario`:
 
@@ -610,6 +620,7 @@ DELETE s
 {
   "id": "uuid",
   "contenido": "Me apunto",
+  "imagen_url": null,
   "fecha": "2026-11-20T16:00:00Z",
   "autor": { "...": "UsuarioResumen" }
 }
@@ -673,14 +684,14 @@ Al crear `CONECTA_CON`, usar `MERGE` **sin dirección** para no duplicar la rela
 ## Publicaciones, likes y comentarios
 
 - `GET /api/publicaciones`: feed paginado. Publicaciones `GENERAL` mías y de mis conexiones aceptadas, de la más reciente a la más antigua.
-- `POST /api/publicaciones`: `{ "contenido": "..." }` (1 a 2000 caracteres). Responde `201` con la `Publicacion` (`GENERAL`).
+- `POST /api/publicaciones`: `{ "contenido": "...", "imagenes": [] }`. `contenido` de 0 a 2000 caracteres e `imagenes` de 0 a 4; debe llegar al menos una de las dos cosas (`422`). Responde `201` con la `Publicacion` (`GENERAL`).
 - `GET /api/publicaciones/{id}`: una `Publicacion`. `404` "La publicación no existe".
-- `PATCH /api/publicaciones/{id}`: campos opcionales `contenido`, `enlace`, `actividad`. Sirve también para las de curso. `403` si no soy el autor.
+- `PATCH /api/publicaciones/{id}`: campos opcionales `contenido`, `enlace`, `actividad`. Sirve también para las de curso. Las imágenes no se pueden cambiar después de publicar. `400` "La publicación no puede quedar vacía" si se borra el texto y no tiene imágenes. `403` si no soy el autor.
 - `DELETE /api/publicaciones/{id}`: `204`. Borra también comentarios, likes, uniones y notificaciones relacionadas. `403` si no soy el autor.
 - `POST` y `DELETE /api/publicaciones/{id}/like`: idempotentes. Responden `{ "total_likes": 3, "me_gusta": true }`.
 - `GET /api/publicaciones/{id}/comentarios`: lista paginada de `Comentario`, del más antiguo al más reciente.
-- `POST /api/publicaciones/{id}/comentarios`: `{ "contenido": "..." }` (1 a 500). `201` con el `Comentario`. En un `BUSCA_GRUPO` solo comentan los inscritos del curso y el autor (`403`).
-- `PATCH .../comentarios/{cid}`: `{ "contenido": "..." }`. Solo el autor del comentario.
+- `POST /api/publicaciones/{id}/comentarios`: `{ "contenido": "...", "imagen_url": null }`. `contenido` de 0 a 500 caracteres; debe llegar texto, imagen o ambos (`422`). `201` con el `Comentario`. En un `BUSCA_GRUPO` solo comentan los inscritos del curso y el autor (`403`).
+- `PATCH .../comentarios/{cid}`: `{ "contenido": "..." }`. Solo el autor del comentario. La imagen no cambia; `400` si queda sin texto y sin imagen.
 - `DELETE .../comentarios/{cid}`: `204`. El autor del comentario o el de la publicación.
 
 ---
@@ -807,6 +818,71 @@ Las **crean los triggers** de la base; no hay ruta ni código del backend que la
 - `PATCH /api/notificaciones/{id}/leida`: `200` `{ "id": "uuid", "leida": true }`. `404` si no existe o no es mía.
 - `POST /api/notificaciones/leidas`: `{ "total_marcadas": 3 }`.
 - `DELETE /api/notificaciones/{id}`: `204`. `404` si no existe o no es mía.
+
+## Imágenes
+
+Las imágenes se suben **primero** al servicio de archivos; este devuelve una dirección, y esa dirección es la que se envía en el JSON de cada endpoint. Ningún otro servicio recibe archivos.
+
+| Dónde            | Campo         | Cantidad | Quién la pone                  |
+| ---------------- | ------------- | -------- | ------------------------------ |
+| Foto de perfil   | `foto_url`    | 1        | El usuario                     |
+| Publicaciones    | `imagenes`    | 0 a 4    | El autor, al crearla           |
+| Comentarios      | `imagen_url`  | 1        | El autor, al crearlo           |
+| Portada de curso | `portada_url` | 1        | La carga el seed; solo lectura |
+
+### Servicio de archivos
+
+`backend/archivos/`, puerto 8004, a cargo de Castro. El gateway le reenvía `/api/archivos` y `/api/health` también lo consulta (aparece como `"archivos"` en `servicios`).
+
+| Ruta                                  | Sesión | Qué hace             |
+| ------------------------------------- | ------ | -------------------- |
+| `POST /api/archivos`                  | Sí     | Sube una imagen      |
+| `GET /api/archivos/{nombre}`          | No     | Devuelve una imagen  |
+| `GET /api/archivos/portadas/{nombre}` | No     | Devuelve una portada |
+
+`POST /api/archivos` recibe `multipart/form-data` con el campo `archivo`. Respuesta `201`:
+
+```json
+{
+  "url": "/api/archivos/3f2b8c1d9a4e4f6b8c0d1e2f3a4b5c6d.webp",
+  "url_miniatura": "/api/archivos/3f2b8c1d9a4e4f6b8c0d1e2f3a4b5c6d_mini.webp"
+}
+```
+
+Errores: `401` sin token; `400` "El archivo no es una imagen JPG, PNG o WebP válida"; `413` "La imagen supera los 10 MB"; `422` falta el archivo.
+
+Reglas:
+
+- Se aceptan JPG, PNG y WebP de hasta 10 MB. No se aceptan GIF; de una imagen animada solo queda el primer cuadro.
+- Se verifica el contenido, no la extensión. Se eliminan los metadatos (como la ubicación GPS).
+- Se guarda en WebP con dos tamaños: la grande (máximo 1080 px por el lado mayor) y la miniatura (320 × 320, recortada al centro).
+- **En Neo4j solo se guarda `url`.** La miniatura se obtiene cambiando `.webp` por `_mini.webp`.
+- Las direcciones son relativas al gateway. Las portadas tienen un solo tamaño.
+- Las imágenes se ven sin sesión (el navegador no envía el token al cargarlas), pero sus nombres son aleatorios.
+- **Limpieza automática:** cada hora, el servicio borra las imágenes de más de 24 horas que no estén en `Usuario.foto_url`, `Publicacion.imagenes` ni `Comentario.imagen_url`. Nadie más tiene que borrar archivos. Las portadas no se borran.
+
+### Qué cambia en los demás endpoints
+
+Los servicios solo guardan y devuelven texto. Para validar lo que reciben, cada dirección debe cumplir `^/api/archivos/[0-9a-f]{32}\.webp$` (con Pydantic, `Field(pattern=...)`, que responde `422`).
+
+| Responsable | Dónde                                                     | Cambio                                                          |
+| ----------- | --------------------------------------------------------- | --------------------------------------------------------------- |
+| Arrieta     | Registro, login y `GET /api/usuarios/me`                  | El usuario incluye `foto_url` (`null` si no tiene)              |
+| Arrieta     | `PATCH /api/usuarios/me`                                  | Acepta `foto_url`. Con `null` se quita; si no llega, no cambia  |
+| Arrieta     | `GET /api/usuarios/{id}`, búsqueda y conexiones           | Incluyen `foto_url`                                             |
+| Arrieta     | Publicaciones y comentarios                               | `imagenes` e `imagen_url` (ver esas secciones)                  |
+| Caceres     | `GET /api/cursos`, `/api/cursos/{id}`, `/api/cursos/mios` | Cada curso incluye `portada_url` (`c.portada_url`)              |
+| Caceres     | `POST /api/cursos/{id}/publicaciones`                     | Acepta `imagenes` (0 a 4). `contenido` sigue siendo obligatorio |
+| Caceres     | Muro y miembros de grupo                                  | `Publicacion` y `UsuarioResumen` con sus campos nuevos          |
+| Carrizosa   | `GET /api/recomendaciones/personas`                       | Cada persona incluye `foto_url`                                 |
+| Carrizosa   | `GET /api/recomendaciones/cursos`                         | Cada curso incluye `portada_url`                                |
+| Carrizosa   | `GET /api/notificaciones`                                 | `origen` incluye `foto_url`                                     |
+
+Notas de implementación:
+
+- Donde las consultas de referencia devuelven un usuario (`u{.id, .nombre, ...}`), hay que añadir `.foto_url`.
+- Una publicación sin la propiedad `imagenes` responde `[]`: `coalesce(p.imagenes, []) AS imagenes`.
+- En `PATCH /api/usuarios/me`, usar `model_dump(exclude_unset=True)` para distinguir "no llegó" de `null`.
 
 ---
 

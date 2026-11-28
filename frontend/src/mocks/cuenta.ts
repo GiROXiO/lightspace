@@ -12,7 +12,18 @@ import { fallo, ok, ruta, sinContenido } from "./servidor";
 function aUsuario(u: UsuarioMock): Usuario {
   const { id, nombre, apellido, email, codigo, semestre, bio, fecha_registro } =
     u;
-  return { id, nombre, apellido, email, codigo, semestre, bio, fecha_registro };
+  const foto_url = u.foto_url ?? null;
+  return {
+    id,
+    nombre,
+    apellido,
+    email,
+    codigo,
+    semestre,
+    bio,
+    fecha_registro,
+    foto_url,
+  };
 }
 
 const aPerfil = (u: UsuarioMock) => ({
@@ -68,6 +79,7 @@ ruta(
       codigo: datos.codigo,
       semestre: datos.semestre,
       bio: "",
+      foto_url: null,
       fecha_registro: new Date().toISOString(),
       programa,
       intereses: datos.intereses,

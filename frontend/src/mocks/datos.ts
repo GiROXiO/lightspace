@@ -62,6 +62,7 @@ const base = {
   password: "Lightspace123!",
   fecha_registro: "2026-01-15T10:00:00Z",
   apellido: "",
+  foto_url: null,
 };
 
 const iniciales: UsuarioMock[] = [
