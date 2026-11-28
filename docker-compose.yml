@@ -125,6 +125,19 @@ services:
     volumes:
       - ./backend/gateway/app:/app/app
 
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_USAR_MOCKS: ${VITE_USAR_MOCKS:-true}
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api}
+    container_name: lightspace-frontend
+    restart: unless-stopped
+    depends_on:
+      - gateway
+    ports:
+      - "5173:80"
+
 volumes:
   neo4j_data:
   archivos_data:
