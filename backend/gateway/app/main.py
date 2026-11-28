@@ -11,6 +11,7 @@ DESTINOS = {
   "usuarios": settings.usuarios_url,
   "cursos": settings.cursos_url,
   "recomendaciones": settings.recomendaciones_url,
+  "archivos": settings.archivos_url,
 }
 
 # Primer segmento de la ruta (/api/<prefijo>/...) -> servicio que la atiende
@@ -25,10 +26,11 @@ RUTAS = {
   "cursos": "cursos",
   "recomendaciones": "recomendaciones",
   "notificaciones": "recomendaciones",
+  "archivos": "archivos",
 }
 
 CABECERAS_IGNORADAS = {"host", "content-length", "connection"}
-CABECERAS_RESPUESTA = {"content-type", "www-authenticate", "location"}
+CABECERAS_RESPUESTA = {"content-type", "www-authenticate", "location", "cache-control"}
 
 
 @asynccontextmanager
@@ -81,7 +83,9 @@ async def health(request: Request):
 
 @app.api_route("/api/{ruta:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
 async def reenviar(ruta: str, request: Request):
-  servicio = RUTAS.get(ruta.split("/", 1)[0])
+  partes = ruta.split("/")
+  # Con ".." se podría salir del prefijo que decide a qué servicio va
+  servicio = None if ".." in partes else RUTAS.get(partes[0])
   if servicio is None:
     raise HTTPException(status_code=404, detail="La ruta no existe")
 
