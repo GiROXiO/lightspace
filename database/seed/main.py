@@ -58,7 +58,11 @@ def main() -> int:
             print("--reset: borrando todo el grafo…", flush=True)
             cargador.borrar_todo(session)
         print("Cargando datos:", flush=True)
-        cargador.cargar(session, ds)
+        cargador.pausar_triggers(driver, True)
+        try:
+            cargador.cargar(session, ds)
+        finally:
+            cargador.pausar_triggers(driver, False)
         nodos, relaciones = cargador.estadisticas(session)
     driver.close()
 

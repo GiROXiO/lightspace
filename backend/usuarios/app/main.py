@@ -6,6 +6,7 @@ from neo4j import Session
 
 from . import db
 from .config import settings
+from .logica import aplicar_logica
 from .schema import aplicar_esquema
 
 logger = logging.getLogger("uvicorn.error")
@@ -16,6 +17,8 @@ async def lifespan(app: FastAPI):
   driver = db.init_driver()
   total = aplicar_esquema(driver, settings.schema_path)
   logger.info("Esquema aplicado: %s sentencias", total)
+  total = aplicar_logica(driver, settings.logica_path)
+  logger.info("Lógica de base de datos instalada: %s objetos", total)
   yield
 
   db.close_driver()

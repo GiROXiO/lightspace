@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from neo4j import Session
+import time
+from neo4j import Driver, Session
 
 TAMANO_LOTE = 500
 
@@ -132,6 +133,17 @@ CARGAS: list[tuple[str, str]] = [
 def borrar_todo(session: Session) -> None:
     """Elimina todos los nodos y relaciones. Las restricciones e índices se conservan."""
     session.run("MATCH (n) DETACH DELETE n").consume()
+
+
+def pausar_triggers(driver: Driver, pausar: bool) -> None:
+    """El seed trae sus propias notificaciones: con los triggers activos saldrían dobles."""
+    accion = "stop" if pausar else "start"
+    with driver.session(database="system") as session:
+        nombres = [r["name"] for r in session.run("CALL apoc.trigger.show('neo4j')")]
+        for nombre in nombres:
+            session.run(f"CALL apoc.trigger.{accion}('neo4j', $nombre)", nombre=nombre).consume()
+    if nombres:
+        time.sleep(2)  # APOC tarda un momento en aplicar el cambio
 
 
 def cargar(session: Session, ds: dict[str, list[dict]]) -> None:
