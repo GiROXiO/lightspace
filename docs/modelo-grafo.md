@@ -83,7 +83,7 @@ graph LR
 
 ## Lógica en la base de datos
 
-> **Por confirmar:** se implementa con el plugin APOC de Neo4j, porque Neo4j Community no permite crear procedimientos, funciones, triggers ni vistas con Cypher como en SQL. Falta verificar qué parte viene en APOC Core y qué parte en APOC Extended para la versión 5.26. Si algo no es viable, la regla se mueve al backend y se documenta aquí.
+> Se implementa con el plugin APOC de Neo4j, porque Neo4j Community no permite crear procedimientos, funciones, triggers ni vistas con Cypher como en SQL. Comprobado en 5.26 Community: los **triggers** están en APOC Core, y los **procedimientos, funciones y vistas** requieren APOC Extended. Todo se instala conectado a la base `system`. Los procedimientos, funciones y vistas se invocan con el prefijo `custom.` (ej. `custom.lightspace.inscribir`).
 
 Convenciones: todo el código vive bajo el espacio de nombres `lightspace`. El responsable de este bloque es Jeronimo Castro; los objetos de notificaciones se acuerdan con Miguel Carrizosa y los de grupos con Juan Caceres. Los endpoints de la fase 1 usan consultas directas; estos objetos entran desde la fase 2.
 
@@ -118,7 +118,7 @@ Los pesos de las fórmulas se fijan en la fase 2 y se documentan aquí.
 
 ### Vistas
 
-Neo4j no tiene vistas como SQL. Aquí una vista es un procedimiento de **solo lectura** con una consulta fija y parámetros, que se llama con `CALL lightspace.vista_xxx(...)`. No guarda datos: siempre lee el estado actual del grafo.
+Neo4j no tiene vistas como SQL. Aquí una vista es un procedimiento de **solo lectura** con una consulta fija y parámetros, que se llama con `CALL custom.lightspace.vista_xxx(...)`. No guarda datos: siempre lee el estado actual del grafo.
 
 | Nombre                            | Entrada              | Devuelve                                               | Servicio                         | Fase |
 | --------------------------------- | -------------------- | ------------------------------------------------------ | -------------------------------- | ---- |
@@ -130,7 +130,7 @@ Neo4j no tiene vistas como SQL. Aquí una vista es un procedimiento de **solo le
 
 ### Reglas de uso
 
-- Los servicios del backend llaman a estos objetos con `CALL lightspace.xxx(...)`; no repiten la lógica en Python.
+- Los servicios del backend llaman a estos objetos con `CALL custom.lightspace.xxx(...)`; no repiten la lógica en Python.
 - El seed carga los datos con `MERGE` directo, sin pasar por los triggers (se desactivan durante la carga y se reactivan al terminar), para no generar notificaciones duplicadas. Por confirmar al implementarlo.
 - Los scripts de estos objetos viven en `database/` y se aplican al arrancar, igual que `schema.cypher`.
 

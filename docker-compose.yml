@@ -7,6 +7,10 @@ services:
     restart: unless-stopped
     environment:
       NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
+      NEO4J_PLUGINS: '["apoc","apoc-extended"]'
+      NEO4J_apoc_trigger_enabled: "true"
+      NEO4J_apoc_trigger_refresh: "1000"
+      NEO4J_apoc_custom_procedures_refresh: "1000"
     ports:
       - "7474:7474"
       - "7687:7687"
